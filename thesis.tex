@@ -1,48 +1,194 @@
-\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
+\documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
 
 \usepackage[utf8]{inputenc}
 \usepackage{babel}
-\setcounter{secnumdepth}{4}
+\usepackage{indentfirst}
+\usepackage{listings}
+
+\setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
+
+\lstdefinelanguage{diff}{
+  morecomment=[f][\color{blue}]{@@},     % group identifier
+  morecomment=[f][\color{red}]-,         % deleted lines 
+  morecomment=[f][\color{green}]+,       % added lines
+  morecomment=[f][\color{magenta}]{---}, % Diff header lines (must appear after +,-)
+  morecomment=[f][\color{magenta}]{+++},
+}
+
+
+\lstset{
+    breaklines=true,
+    postbreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\color{red}\hookrightarrow\space}}
+}
+
 
 \begin{document}
 
 \author{inż.~Jakub Woźniak}
 \title{Web Application Firewall}
-\secondtitle{\textsc{Projekt i implementacja transparentnego systemu ochrony aplikacji
-internetowych}}
+\secondtitle{\textsc{Projekt i implementacja narzędzia testującego bezpieczeństwo reguł ModSecurity}}
 \supervisor{dr inż.~Michał Szychowiak}
 \date{Poznań, 2017}
 \maketitle
 \frontmatter
-\tableofcontents{}
+\tableofcontents
 \mainmatter
+
+% http://www.securityweek.com/evaluating-web-application-firewalls-things-keep-mind
 
 \chapter{Wstęp}
 
+Aplikacje internetowe (ang. \textit{web applications}) stopniowo wypierają ich okienkowe odpowiedniki. Przeglądarka internetowa stała się nieodłącznym elementem pracy przy komputerze. Popularność zyskują również systemy operacyjne, które opierają się wyłącznie o przeglądarkę i~przetwarzanie w chmurze. Wraz z upowszechnieniem się aplikacji internetowych, wzrosła również liczba ataków komputerowych, które mają na celu uzyskanie dostępu do prywatnych danych użytkowników lub zmuszenie ich do nieświadomego podjęcia jakiejś akcji. Baza danych \textit{Common Vulnerabilities and Exposures}\cite{cve} zawiera ponad 82 tysiące\footnote{stan na 17 marca 2017 r.} unikalnych, skatalogowanych podatności oprogramowania.
+
+Dostępność otwartego i~rozbudowanego oprogramowania takiego jak Wordpress\cite{wordpress} czy Joomla\cite{joomla} połączona z dynamicznym rozwojem i~aktywnością społeczności programistów o różnym doświadczeniu stanowi poważny problem dla bezpieczeństwa tych aplikacji i~danych osób z nich korzystających. Wiele z odkrytych podatności znajduje się w~nieoficjalnych wtyczkach napisanych przez wolontariuszy i~udostępnionych na otwartych licencjach. Osoby zarządzające serwisami opartymi o ww. systemy często nie są świadome tych zagrożeń i~nie aktualizują oprogramowania na swoich serwerach. 
+
+Dla samego systemu Wordpress w CVE skatalogowano ponad 290 podatności (statystyka nie dotyczy wtyczek), a~ostatnia z~nich opublikowana 11 marca 2017 roku dotyczy ataku typu CSRF\footnote{stan na 17 marca 2017 r.}, który pozwala na nadmierne wykorzystanie zasobów serwera (procesor, pamięć operacyjna), co w ostateczności może doprowadzić do ataku typu Denial of Service i~spowodowania niedostępności serwisu.
+
+Również zamknięte i~komercyjne oprogramowanie nie jest wolne od błędów. Invision Power Board\cite{ipb} to komercyjny system pozwalający na prowadzenie forum dyskusyjnego. W bazie CVE znajduje się 11 odkrytych podatności\footnote{stan na 17 marca 2017 r.}, ostatnia jest z 12 lipca 2016 roku i~dotyczy możliwości zdalnego wykonania kodu na serwerze.
+
+W styczniu 2017 roku w CVE skatalogowano 1085 podatności, znaczna część z nich dotyczyła bezpieczeństwa aplikacji internetowych. Były to m.in.\ ataki typu: XSS, SQL Injection, CSRF i zdalnego wykonania kodu. W przypadku otwartego oprogramowania społeczność zazwyczaj dość szybko reaguje na pojawiające się zagrożenia, pojawiają się aktualizacje bezpieczeństwa, które należy pobrać i~zainstalować na własnym serwerze. Zamknięte oprogramowanie wymaga reakcji producenta, co może wiązać się z długim czasem oczekiwania czy nawet negacją zagrożenia ze strony dostawcy.
+
+Niestety nawet natychmiastowe wydanie aktualizacji przez producenta nie gwarantuje nam bezpieczeństwa. Aplikacje takie jak Wordpress czy Invision Power Board są utrzymywane i~zarządzane przez właściciela serwisu (np.\ przez nas samych). O podatności odkrytej w nocy możemy dowiedzieć się dopiero następnego dnia lub całkowicie przeoczyć taką informację. Crackerzy mogą spróbować zaatakować naszą stronę przy pomocy całkowicie nowego sposobu (zanim zostanie on upubliczniony, tzw. \textit{zero-day exploit}).
+
+Powstała potrzeba posiadania zabezpieczenia podobnego do oprogramowania antywirusowego, które potrafi rozpoznawać zagrożenia bazując na znanych sygnaturach i~dodatkowo przeciwdziałać nieznanym atakom przy pomocy heurystyk. Takim odpowiednikiem jest Web Application Firewall, który występuje zarówno jako oprogramowanie pośredniczące instalowane na standardowych systemach operacyjnych, jak i~rozwiązania sprzętowe (np. wbudowane w urządzenia klasy UTM\footnote{Unified Threat Management}). WAF dokonuje analizy ruchu na 7.~warstwie modelu OSI i~zależnie od wyniku algorytmu oceniającego zagrożenie --- blokuje lub dopuszcza ruch z/do serwera www.  
+
 \section*{Cel i zakres pracy}
+Celem niniejszej pracy magisterskiej jest stworzenie narzędzia pozwalającego na automatyczne testowanie konfiguracji Web Application Firewall. Test ma polegać na przygotowaniu zestawu wektorów ataku, przeprowadzenie tego ataku na testowany WAF, a~następnie ocenę czy ruch sieciowy został poprawnie zablokowany. W celu przygotowania pracy magisterskiej należało dokonać analizy bieżących zagrożeń dotyczących aplikacji internetowych i~zapoznanie się z istniejącymi rozwiązaniami klasy WAF (w szczególności ModSecurity\cite{modsec}). Następnie wykonano prototypową realizację narzędzia testującego i~przeprowadzono testy konfiguracji na przygotowanym środowisku. Na podstawie wyników testów podjęto próbę przygotowania zestawu reguł, które pozwoliłyby na zablokowanie zagrożeń, które nie zostały wykryte przez WAF.
+
+Struktura pracy jest następująca: TODO.
 
 
-\chapter{Podstawy teoretyczne}
+\chapter{Wprowadzenie teoretyczne}
+Realizacja pracy wymagała zapoznania się z technologiami wykorzystywanymi przy tworzeniu aplikacji internetowych i potencjalnymi zagrożeniami bezpieczeństwa, na które są te aplikacje narażone.
+\section{Zagrożenia aplikacji internetowych}
+% OWASP TOP 10
+Współczesne aplikacje internetowe są wielowarstwowe i wykorzystują różne technologie, m.in.~kod wykonywany po stronie klienta (JavaScript), kod wykonywany po stronie serwera (np.~PHP, Python, Ruby), bazy danych, itp.. Każda z tych technologii jest narażona na obecność podatności, które mogą być wykorzystane przez crackerów do wykradzenia informacji poufnych.
+
+Internetowa społeczność \textbf{Open Web Application Security Project (OWASP)}\cite{owasp} zajmuje się tworzeniem artykułów, dokumentacji i narzędzi związanych z bezpieczeństwem sieci komputerowych. Jeden z ich największych projektów to \textbf{OWASP Top Ten}, którego celem jest podniesienie świadomości użytkowników na temat bezpieczeństwa aplikacji przez publikowane listy 10 najważniejszych zagrożeń.
+
+\subsection{Iniekcja kodu}
+Iniekcja kodu to wykorzystanie błędu, który pozwala na przekazanie do wykonania niezaufanych danych wprowadzonych z zewnątrz. Potencjalnie narażona jest na to każda aplikacja w której użytkownik może wprowadzić dane. Atak polega na wprowadzeniu tekstu, który wykorzystuje składnię atakowanego interpretera, stąd jest on prosty do wykonania i bardzo skuteczny. Szczególnie narażone są następujące technologie: SQL, LDAP, XPath, NoSQL, polecenia systemu operacyjnego, parsery XML. itp.. Iniekcja może spowodować wyciek informacji, utratę danych (lub ich uszkodzenie), a w skrajnych przypadkach nawet całkowite przejęcie kontroli nad systemem.
+
+Ochrona przed tym atakiem jest dość prosta, znaczna część bibliotek (np. do komunikacji z bazami danych) udostępnia mechanizmy pozwalające na separację wprowadzonych danych od składni interpretera (wiązanie zmiennych).
+
+\subsubsection*{Przykład}
+\begin{lstlisting}[language=php,frame=single,caption=kod podatny na iniekcję,label=injectionphp,numbers=left]
+<?php
+
+$id = $_GET["id"];
+$query  = "SELECT id, name, price FROM products WHERE id = $id";
+$result = pg_query($conn, $query);
+
+?>
+\end{lstlisting}
+Zaprezentowany kod \ref{injectionphp} przyjmuje wartość parametru \textit{id} przekazaną przy pomocy URI przez użytkownika, a następnie zapisuje ją do zmiennej. Zmienna ta jest wykorzystana w zapytaniu SQL (linia 4). Brak weryfikacji zawartości tej zmiennej spowoduje wstawienie do zapytania dowolnego kodu przekazanego w parametrze. Jeżeli do zmiennej zostanie wprowadzona wartość \lstinline[frame=single]|4; DROP TABLE products; --|, to ostatecznie wykonane zapytanie będzie wyglądało następująco: 
+\begin{lstlisting}
+SELECT id, name, price FROM products WHERE id = 4; DROP TABLE products; --
+\end{lstlisting}
+Powyższe wykonanie spowoduje usunięcie z bazy danych relacji o nazwie \textit{products}.
+
+Podatność na iniekcję kodu SQL wykryto np. w popularnym systemie zarządzania treścią JPortal (CVE-2007-5973). Pozwalała ona na wykonanie dowolnego kodu SQL przez parametr \textit{topic} w skrypcie \textit{articles.php}
+
+\begin{lstlisting}[language=php,frame=single,caption=podatność articles.php w systemie JPortal,label=injectionjportal,numbers=left]
+<?php
+
+function topic_name($a)  
+{     
+global $topic_tbl; 
+$query = "SELECT * FROM $topic_tbl WHERE id=$a"; 
+$result = mysql_query($query);   
+$r = mysql_fetch_array($result);     
+return '<a href="articles.php?topic='.$a.'" class="t_main">'.$r['title'].'</a>';   
+} 
+
+?>
+\end{lstlisting}
+
+Przekazanie do parametru wartości \lstinline|-1+UNION+SELECT+1,pass,3,4,5+FROM+admins/| pozwalało na otrzymanie nazwy użytkownika i skrótu hasła (MD5 bez soli) kont z uprawnieniami administratora.
+\subsection{Błędy uwierzytelnienia i zarządzania sesją}
+Kolejnym popularnym zagrożeniem są błędy związane z uwierzytelnieniem użytkowników i zarządzaniem sesją. Dane związane z sesją (nazwa użytkownika, hasło, identyfikator sesji) są często przechowywane w sposób narażający na ujawnienie informacji --- brak funkcji skrótu lub szyfrowania, przesyłanie danych w formie czystego tekstu. Szczególnie ważny jest tutaj mechanizm, który rozpoznaje uprawnienia użytkownika podczas kolejnych, niezależnych żądań HTTP. Często wiele z tych danych jest przechowywanych w postaci ciasteczka \textit{(ang. cookie} po stronie przeglądarki, jego przechwycenie lub modyfikacja może spowodować przejęcie konta ofiary lub eskalację uprawnień.
+
+W nowszych systemach, użytkownik w ciasteczku otrzymuje wyłącznie informacje o identyfikatorze sesji, a dane z nią związane przechowywane są po stronie serwera. Takie rozwiązanie jest również podatne na atak fiksacji sesji. Jeżeli weryfikowany jest tylko identyfikator sesji, to przechwycenie tego identyfikatora powoduje przejęcie sesji. Potencjalnie zagrożone są aplikacje:
+\begin{itemize}
+\item przechowują identyfikator sesji w adresie URI,
+\item nie regenerują identyfikatora przy logowaniu,
+\item nie korzystają z mechanizmu wygasania sesji po określonym czasie,
+\item nie weryfikują innych danych żądania poza identyfikatorem (np. adresu IP czy sygnatury przeglądarki),
+\item przesyłają informacje nieszyfrowanym kanałem.
+\end{itemize}
+
+\subsubsection*{Przykład}
+Załóżmy istnienie sklepu internetowego, który przechowuje identyfikator sesji w URI. Zalogowany użytkownik \textit{A} przegląda stronę i chce pokazać ofertę innej osobie, więc kopiuje z przeglądarki adres strony o następującej postaci:
+\begin{lstlisting}
+http://example.com/sklep/oferta.php?sessid=5aef77ef7aa
+\end{lstlisting}
+Użytkownik \textit{B} po wejściu na otrzymany adres będzie zalogowany z uprawnieniami użytkownika \textit{A} i otrzyma dostęp do wszystkich informacji o tym użytkowniku, które są przechowywane w systemie.
+
+Innym, bardziej prawdopodobnym atakiem jest przekazanie ofierze adresu z spreparowanym identyfikatorem sesji. Jeżeli aplikacja nie regeneruje identyfikatora po zalogowaniu, to atakujący będzie mógł przejąć sesję, jeśli ofiara zaloguje się przy pomocy przekazanego adresu. Na taki atak był podatny system CMS Symphony2 (CVE-2016-4309). Przy błędnie skonfigurowanym interpreterze języka PHP (brak wymuszenia przechowywania identyfikatora sesji w ciasteczku) atakujący mógł wymusić konkretny identyfikator sesji przy pomocy parametru \textit{PHPSESSID} przekazanego w URI. Stosowna poprawka pojawiła się w repozytorium projektu i usunęła wskazaną podatność (przykład \ref{symphonydiff}).
+
+\begin{lstlisting}[language=diff,frame=single,caption=łatka naprawiająca podatność fiksacji sesji w Symphony2 \cite{symphony},label=symphonydiff,numbers=left]
+
+diff --git a/symphony/lib/core/class.session.php b/symphony/lib/core/class.session.php
+index c0075a1..dedb526 100644
+--- a/symphony/lib/core/class.session.php
++++ b/symphony/lib/core/class.session.php
+@@ -58,6 +58,9 @@ public static function start($lifetime = 0, $path = '/', $domain = null, $httpOn
+ 
+             if (session_id() == '') {
+                 ini_set('session.save_handler', 'user');
++                ini_set('session.use_trans_sid', '0');
++                ini_set('session.use_strict_mode', '1');
++                ini_set('session.use_only_cookies', '1');
+                 ini_set('session.gc_maxlifetime', $lifetime);
+                 ini_set('session.gc_probability', '1');
+                 ini_set('session.gc_divisor', Symphony::Configuration()->get('session_gc_divisor', 'symphony'));
+\end{lstlisting}
+
+\subsection{Cross-site scripting (XSS)}
+\subsection{Brak restrykcji bezpośredniego dostępu do obiektu}
+\subsection{Błędna konfiguracja bezpieczeństwa}
+\subsection{Ujawnienie wrażliwych danych}
+\subsection{Brak kontroli dostępu na poziomie wykonania funkcji}
+\subsection{Cross-site request forgery (CSRF)}
+\subsection{Korzystanie z komponentów o znanych podatnościach}
+\subsection{Brak weryfikacji przekierowań}
 
 
-\chapter{Projekt systemu}
+\section{Web Application Firewall}
+Web Application Firewall to...
+
+\subsection{Oprogramowanie}
+\subsubsection{ModSecurity}
+\subsubsection{NAXSI}
+
+\subsection{Urządzenia}
+\subsubsection{Citrix Netscaller Application Firewall}
+\subsubsection{Fortinet FortiWeb}
+
+\subsection{Rozwiązania chmurowe}
+\subsubsection{Amazon Web Services WAF}
+\subsubsection{Cloudflare}
+
+\section{Intrusion Prevention System}
 
 \chapter{Implementacja systemu}
 
-\chapter{Testy efektywnościowe}
+\chapter{Testy funkcjonalne}
+
 
 \chapter{Zakończenie}
-
-\appendix
-
-\chapter{Przewodnik użytkownika}
 
 \backmatter
 
 \begin{thebibliography}{1}
-\bibitem{sop}A.~Tanenbaum. \emph{Operating Systems Design and Implementation}.
-Prentice Hall, 2006.
+\bibitem{cve} Common Vulnerabilities and Exposures, https://cve.mitre.org/ [dostęp: 17 marca 2017]
+\bibitem{wordpress} https://wordpress.org/
+\bibitem{joomla} https://www.joomla.org/
+\bibitem{ipb} https://invisionpower.com/
+\bibitem{modsec} https://modsecurity.org/
+\bibitem{owasp} https://www.owasp.org/
+\bibitem{symphony} https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff
 \end{thebibliography}
 
 \end{document}
