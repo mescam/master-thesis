@@ -201,7 +201,7 @@ Użytkownik \textit{@derGeruhn} zamieścił na swoim profilu wpis, który wykorz
 Ataki wykorzystujące błędną kontrolę dostępu do obiektu polegają na podmianie parametrów autoryzujących lub bezpośrednie wywołanie niepublicznych funkcji, do których dostęp nie jest odpowiednio weryfikowany. Jest to szczególnie ważne przy projektowaniu publicznych API, gdzie URL często zawiera nazwy obiektów. Przez modyfikowanie tej nazwy można odwołać się do obiektu, do którego nie mamy dostępu. Jest to podatność prosta do wykrycia, niestety jej obecność może umożliwić ujawnienie poufnych danych zgromadzonych w systemie.
 
 \subsubsection*{Przykład}
-Kod (przykłąd \ref{da01}) odpowiada za pobranie wiadomości prywatnych użytkownika. Załóżmy, że funkcja \textit{LookupMessageObject} weryfikuje czy dane są numeryczne, a wiadomości są składowane w jednym miejscu (niezależnie od użytkownika), identyfikowane wyłącznie wg identyfikatora tej wiadomości. Kod aplikacji prawidłowo sprawdza czy użytkownik jest zalogowany. Wywołanie funkcji \textit{DisplayPrivateMessage} nie weryfikuje uprawnień zalogowanego użytkownika do żądanej wiadomości. Każdy zalogowany użytkownik może modyfikując parametr \textit{id} próbować pobrać dowolną wiadomość (zakładając sekwencyjne przydzielanie identyfikatora jest to bardzo proste) z pozytywnym skutkiem.
+Kod (przykład \ref{da01}) odpowiada za pobranie wiadomości prywatnych użytkownika. Załóżmy, że funkcja \textit{LookupMessageObject} weryfikuje czy dane są numeryczne, a wiadomości są składowane w jednym miejscu (niezależnie od użytkownika), identyfikowane wyłącznie wg identyfikatora tej wiadomości. Kod aplikacji prawidłowo sprawdza czy użytkownik jest zalogowany. Wywołanie funkcji \textit{DisplayPrivateMessage} nie weryfikuje uprawnień zalogowanego użytkownika do żądanej wiadomości. Każdy zalogowany użytkownik może modyfikując parametr \textit{id} próbować pobrać dowolną wiadomość (zakładając sekwencyjne przydzielanie identyfikatora jest to bardzo proste) z pozytywnym skutkiem.
 
 \begin{lstlisting}[language=perl,frame=single,caption=przykładowy kod podatny na bezpośrednie odwołanie \cite{directaccess},label=da01,numbers=left]
 sub DisplayPrivateMessage {
@@ -224,9 +224,30 @@ my $id = $q->param('id');
 DisplayPrivateMessage($id);
 \end{lstlisting}
 
+W 2015 roku odkryto wiele podatności w rozszerzeniu dla systemu Wordpress --- TheCartPress (CVE-2015-3300) \cite{thecartpress}. Jedna z nich polegała na błędnej kontroli dostępu do obiektu. Atakujący mógł otworzyć następujący URL [\ref{thecartpress1}], a następnie przejść na adres [\ref{thecartpress2}], który zawiera pełne informacje dotyczące zamówienia w sklepie internetowym. Identyfikator zamówienia jest inkrementacją poprzedniej wartości, stąd łatwo przewidzieć dozwolone wartości i otrzymać pełne informacje o wszystkich zamówieniach w systemie.
+
+\begin{lstlisting}[caption=adres URL zamówienia w systemie TheCartPress,label=thecartpress1]
+http://wordpress/shopping-cart/checkout/?tcp_checkout=ok&order_id=[order_id]
+\end{lstlisting}
+
+\begin{lstlisting}[caption=adres URL przeznaczony dla administratora do podglądu zamówienia,label=thecartpress2]
+http://wordpress/wp-admin/admin-ajax.php?order_id=[order_id]&action=tcp_print_order
+\end{lstlisting}
+
+
 \subsection{Błędna konfiguracja bezpieczeństwa}
+Błędy związane z konfiguracją bezpieczeństwa mogą wystąpić praktycznie na każdej warstwie aplikacji: sprzęt, system operacyjny, serwer WWW, system zarządzania bazą danych, kod źródłowy. Szczególną uwagę należy zwrócić na aktualizacje bezpieczeństwa, które łatają podatności oprogramowania wykorzystywanego na serwerze. Ważnym elementem jest również prawidłowa konfiguracja zapory sieciowej i udostępnienie tylko potrzebnych usług. Gotowe aplikacje internetowe często posługują się domyślnym kontem administratora, które ma powszechnie znane hasło. Takie konta należy dezaktywować, ponieważ nawet zautomatyzowane ataki wykorzystują te dane do prób włamania. Również przy tworzeniu własnego oprogramowania można popełnić wiele błędów. Platformy programistyczne (\textit{ang. framework}) często udostępniają tryb debugowania, który podczas błędów udziela szczegółowych informacji o wystąpieniu problemu (nawet z fragmentami kodu). Pozostawienie takiego trybu na systemach produkcyjnych może spowodować wyciek informacji o architekturze systemu i wartości sekretnych zmiennych.
+
+\subsubsection*{Przykład}
+Django \cite{django} to framework dla języka Python, który pozwala na tworzenie aplikacji internetowych. Na szczególną uwagę zasługują dwie zmienne środowiskowe w pliku konfiguracyjnym: \textit{DEBUG} i \textit{SECRET\_KEY}. Główną funkcją zmiennej \textit{DEBUG} jest szczegółowy widok błędu. Gdy aplikacja napotka na błąd wykonania (nieprzechwycony wyjątek) to wyświetli dokładny opis problemu, wraz z fragmentami kodu na stosie wywołań, zawartością plików konfiguracyjnych i treścią żądania HTTP. W celu zwiększenia bezpieczeństwa, twórcy Django dodali automatyczne usuwanie wartości zmiennych o nazwach podobnych do ,,pass'', ,,token'', itp. W połączeniu z dodatkowymi rozszerzeniami, programista może w łatwy sposób uzyskać interaktywną konsolę z interpreterem języka Python, która będzie działała na stronie ze szczegółami błędu. Uruchomienie aplikacji w tym trybie na systemie produkcyjnym pozwoli atakującemu w łatwy sposób przejąć kontrolę nad powłoką systemową i wykonać dowolne polecenia. Zmienna \textit{SECRET\_KEY} służy do podpisów kryptograficznych i powinna być unikalna oraz nieprzewidywalna. Częstym błędem jest niezmienianie wartości tej zmiennej po pobraniu projektu, przez co atakujący może podpisać własne dane przy pomocy znanego klucza, a aplikacja zaakceptuje je i np.~autoryzuje użytkownika.
+
+W 2009 roku znany portal internetowy wykop.pl został zaatakowany, czego skutkiem był wyciek bazy danych serwisu wraz z danymi o użytkownikach (nazwy, skróty haseł bez soli, adresy e-mail) \cite{wykop}. Baza danych przeznaczona do celów deweloperskich (zawierające kopię bazy produkcyjnej z zachowaniem oryginalnych danych) była dostępna publicznie, bez weryfikacji adresu IP klienta, a sama usługa działała na domyślnych ustawieniach --- brak hasła dla użytkownika \textit{root}. Atakujący w łatwy sposób uzyskali pełną kontrolę nad usługą bazy danych i skopiowali składowane tam informacje.
+
 \subsection{Ujawnienie wrażliwych danych}
-\subsection{Brak kontroli dostępu na poziomie wykonania funkcji}
+
+
+
+\subsection{Niewystarczająca ochrona przed atakami}
 \subsection{Cross-site request forgery (CSRF)}
 \subsection{Korzystanie z komponentów o znanych podatnościach}
 \subsection{Brak weryfikacji przekierowań}
@@ -268,6 +289,9 @@ Web Application Firewall to...
 \bibitem{symphony} https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff
 \bibitem{tweetdeck} http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6 [dostęp 03.05.2017 r.]
 \bibitem{directaccess} https://cwe.mitre.org/data/definitions/285.html
+\bibitem{thecartpress} https://www.htbridge.com/advisory/HTB23254 [dostę:p 06.05.2017 r.]
+\bibitem{django} https://www.djangoproject.com/
+\bibitem{wykop} http://prawo.vagla.pl/node/8629 [dostęp: 06.05.2017 r.]
 \end{thebibliography}
 
 \end{document}
