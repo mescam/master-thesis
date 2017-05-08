@@ -244,16 +244,39 @@ Django \cite{django} to framework dla języka Python, który pozwala na tworzeni
 W 2009 roku znany portal internetowy wykop.pl został zaatakowany, czego skutkiem był wyciek bazy danych serwisu wraz z danymi o użytkownikach (nazwy, skróty haseł bez soli, adresy e-mail) \cite{wykop}. Baza danych przeznaczona do celów deweloperskich (zawierające kopię bazy produkcyjnej z zachowaniem oryginalnych danych) była dostępna publicznie, bez weryfikacji adresu IP klienta, a sama usługa działała na domyślnych ustawieniach --- brak hasła dla użytkownika \textit{root}. Atakujący w łatwy sposób uzyskali pełną kontrolę nad usługą bazy danych i skopiowali składowane tam informacje.
 
 \subsection{Ujawnienie wrażliwych danych}
+Przy projektowaniu aplikacji internetowej należy mieć na uwadze możliwość uzyskania przez atakującego dostępu do składowanych danych lub kopii zapasowych tych danych. Jest to możliwe na wszystkich etapach komunikacji sieciowej --- dostęp do danych składowanych na serwerze, podsłuchanie ruchu sieciowego, uzyskanie informacji z przeglądarki internetowej ofiary. Algorytmy kryptograficzne są ciężkie do złamania, dlatego atakujący skupiają się na słabych elementach systemu: kradzież kluczy kryptograficznych, atak typu man-in-the-middle, pozyskanie danych w postaci czystego tekstu po deszyfrowaniu wiadomości przez serwer.
 
+Szczególnie wrażliwe dane to: hasła użytkowników, dane osobowe, numery kart kredytowych, itp. Zagrożeniem dla aplikacji jest przechowywanie lub przesyłanie tych danych w postaci czystego tekstu. Jeżeli wprowadzono mechanizmy kryptograficzne, to należy zadbać o dobranie silnych algorytmów i kluczy kryptograficznych (którymi należy odpowiednio zarządzać i rotować co określony czas). Wciąż popularne jest przechowywanie haseł użytkowników w formie skrótu MD5 lub SHA1 bez wprowadzonego ciągu zaburzającego (tzw.~soli). Korzystanie z tych algorytmów jest niezalecane, ponieważ stosunkowo łatwo jest odnaleźć pierwotną formę hasła (nawet przy pomocy ataków typu \textit{brute force}). 
+
+Dane przesyłane przy pomocy protokołu HTTP powinny być również szyfrowane, służy do tego protokół TLS. Do ustalenia bezpiecznego kanału komunikacji wykorzystuje się certyfikaty X.509. Współcześnie uzyskanie takiego certyfikatu jest bardzo proste. Projekt Let's Encrypt zarządzany przez Internet Security Research Group ma na celu upowszechnienie stosowania protokołu HTTPS. Jest to urząd certyfikacji, który oferuje darmowe certyfikaty X.509. Dzięki temu można w prosty sposób zapewnić podstawowe bezpieczeństwo komunikacji bez ponoszenia dodatkowych kosztów.
+
+\subsubsection*{Przykład}
+W czerwcu 2016 roku największy rosyjski portal społecznościowy VK.com został zaatakowany \cite{vk}. W wyniku ataku uzyskano dostęp do bazy danych serwisu, która zawierała dane osobowe użytkowników, adresy e-mail oraz hasła przechowywane w formie czystego tekstu. Kopia bazy zawierała ponad 100 milionów rekordów. Było to szczególnie niebezpieczne dla tych użytkowników, którzy korzystali z tego samego hasła również w innych serwisach internetowych. 
 
 
 \subsection{Niewystarczająca ochrona przed atakami}
+Zabezpieczenie się przed wszystkimi rodzajami ataków jest bardzo trudne do zrealizowania. Niektóre z nich nie wykorzystują podatności samej aplikacji, a np.~próbują w zautomatyzowany sposób odgadnąć hasła użytkowników metoda siłową. W celu zwiększenia bezpieczeństwa należy wdrożyć mechanizmy wykrywania i reagowania na ataki (manualne i zautomatyzowane).
+
+Detekcja ataków polega na monitorowaniu przychodzącego ruchu sieciowego (również na warstwie aplikacji) i analizie pod kątem: częstotliwości żądań, wprowadzanych danych, powtarzalności, itp. Nawet podstawowa metryka polegająca na analizie wolumenu ruchu per adres IP pozwala na wykrycie anomalii i podjęcie odpowiedniej reakcji. Reagowanie na ataki to przede wszystkim powiadomienie administratorów o zaistniałym potencjalnym zagrożeniu. Na podstawie rejestrów zdarzeń można podjąć decyzję o zablokowaniu danego adresu IP lub całego zakresu. W przypadku uwierzytelnionych użytkowników jedną z możliwości jest zablokowanie konta użytkownika.
+
+Odnalezione podatności wymagają wytworzenia przez programistów odpowiedniej aktualizacji. W przypadku zewnętrznego oprogramowania, proces ten może potrwać nawet kilka tygodni. W tym celu można wykorzystać mechanizmy, które analizują ruch HTTP i blokują określone wzorce żądań wykorzystujące podatności aplikacji.
+
+\subsubsection*{Przykład}
+Jednym z popularnych mechanizmów do obrony przed atakami siłowymi jest mechanizm \textit{CAPTCHA}. Polega on na wyświetleniu przy np. trzeciej i każdej kolejnej nieudanej próbie pewnego dodatkowego zadania, które użytkownik musi wykonać. Zazwyczaj polega to na przepisaniu frazy z wyświetlonego obrazu, który jest przygotowany w taki sposób, by utrudnić pracę algorytmom OCR. 
+
+
 \subsection{Cross-site request forgery (CSRF)}
+Jest to metoda ataku na aplikację internetową, która polega na wykorzystaniu przez atakującego uprawnień ofiary do nieświadomego wykonania przez nią określonej operacji. Atak ten jest często wykorzystywany razem z XSS.
+
+
 \subsection{Korzystanie z komponentów o znanych podatnościach}
 \subsection{Brak weryfikacji przekierowań}
 
+\section{Mechanizmy wbudowane w przeglądarki internetowe}
+
 
 \section{Web Application Firewall}
+\label{waf}
 Web Application Firewall to...
 
 \subsection{Oprogramowanie}
@@ -292,6 +315,8 @@ Web Application Firewall to...
 \bibitem{thecartpress} https://www.htbridge.com/advisory/HTB23254 [dostę:p 06.05.2017 r.]
 \bibitem{django} https://www.djangoproject.com/
 \bibitem{wykop} http://prawo.vagla.pl/node/8629 [dostęp: 06.05.2017 r.]
+\bibitem{vk} http://thehackernews.com/2016/06/vk-com-data-breach.html [dostęp: 07.05.2017 r.]
+
 \end{thebibliography}
 
 \end{document}
