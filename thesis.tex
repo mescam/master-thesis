@@ -1,11 +1,12 @@
 \documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
 
 \usepackage[utf8]{inputenc}
+
 \usepackage{babel}
 \usepackage{indentfirst}
 \usepackage{listings}
 \usepackage{graphicx}
-
+\usepackage{hyperref}
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
 
@@ -110,6 +111,17 @@ return '<a href="articles.php?topic='.$a.'" class="t_main">'.$r['title'].'</a>';
 \end{lstlisting}
 
 Przekazanie do parametru wartości \lstinline|-1+UNION+SELECT+1,pass,3,4,5+FROM+admins/| pozwalało na otrzymanie nazwy użytkownika i skrótu hasła (MD5 bez soli) kont z uprawnieniami administratora.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.4]{szpital}
+
+\caption{strona SPZOZ w Kole, potencjalnie podatna na atak SQL Injection}
+\label{fig:szpital}
+\end{figure}
+
+Na rysunku \ref{fig:szpital} pokazano stronę internetową Samodzielnego Publicznego Zakładu Opieki Zdrowotnej w Kole, która potencjalnie jest podatna na atak SQL Injection. Wartość parametru \textbf{id} w URI jest umieszczona bezpośrednio w zapytaniu SQL, a błąd wygenerowany przez system zarządzania bazą danych został wyświetlony bezpośrednio w formularzu (brak obsługi błędu po stronie aplikacji).
+
 \subsection{Błędy uwierzytelnienia i zarządzania sesją}
 Kolejnym popularnym zagrożeniem są błędy związane z uwierzytelnieniem użytkowników i zarządzaniem sesją. Dane związane z sesją (nazwa użytkownika, hasło, identyfikator sesji) są często przechowywane w sposób narażający na ujawnienie informacji --- brak funkcji skrótu lub szyfrowania, przesyłanie danych w formie czystego tekstu. Szczególnie ważny jest tutaj mechanizm, który rozpoznaje uprawnienia użytkownika podczas kolejnych, niezależnych żądań HTTP. Często wiele z tych danych jest przechowywanych w postaci ciasteczka \textit{(ang. cookie} po stronie przeglądarki, jego przechwycenie lub modyfikacja może spowodować przejęcie konta ofiary lub eskalację uprawnień.
 
@@ -267,10 +279,87 @@ Jednym z popularnych mechanizmów do obrony przed atakami siłowymi jest mechani
 
 \subsection{Cross-site request forgery (CSRF)}
 Jest to metoda ataku na aplikację internetową, która polega na wykorzystaniu przez atakującego uprawnień ofiary do nieświadomego wykonania przez nią określonej operacji. Atak ten jest często wykorzystywany razem z XSS.
+Ataki CSRF zazwyczaj powodują wykonanie żądania HTTP, które zmienia stan obiektu --- atakujący nie ma możliwości odebrania odpowiedzi na żądanie od serwera, dlatego atak ten jest skuteczny np.~przy zmianie hasła ofiary, wykonaniu przelewu lub w przypadku gdy użytkownik posiada podwyższone uprawnienia --- naruszeniu strony internetowej.
 
+Przeprowadzenie ataku wymaga zmuszenia ofiary do wykonania określonego żądania HTTP. Może to być wykonane przy pomocy inżynierii społecznej. Czasami istnieje możliwość ,,przechowania'' ataku w samej aplikacji, np.~w tagu HTML lub przy pomocy bardziej skomplikowanego ataku XSS. Żądania wykonywane przez przeglądarkę automatycznie zawierają dane związane z odwiedzaną stroną takie jak adres IP czy HTTP Cookie. Ofiara nieświadomie wykona zapytanie do serwera, które zmienia stan atakowanego obiektu. Odpowiedź serwera trafia do ofiary (ale jest ona ukryta), dlatego celem ataku nie są dane.
+
+Współcześnie zręby projektowe, na podstawie których buduje się aplikacje internetowe, posiadają już gotowe zabezpieczenia przed atakiem CSRF przy pomocy żetonów. Do każdego wygenerowanego formularza (i równocześnie sesji użytkownika) przynależy żeton CSRF o losowej wartości, który należy przekazać w żądaniu do serwera. Zazwyczaj żeton ten jest przechowywany w formularzu w postaci ukrytego pola. Atakujący musiałby najpierw pobrać zawartość strony z formularzem aby poznać wartość, jaką następnie musiałby przekazać podczas wykorzystywania uprawnień ofiary.
+
+\subsubsection*{Przykład}
+\begin{lstlisting}[language=html,frame=single,caption=przykładowy kod HTML podatny na atak CSRF \cite{csrf-example},label=csrf01,numbers=left]
+<form action="/url/profile.php" method="post">
+<input type="text" name="firstname"/>
+<input type="text" name="lastname"/>
+<br/>
+<input type="text" name="email"/>
+<input type="submit" name="submit" value="Update"/>
+</form>
+\end{lstlisting}
+
+\begin{lstlisting}[language=php,frame=single,caption=przykładowy kod PHP podatny na atak CSRF \cite{csrf-example},label=csrf02,numbers=left]
+// initiate the session in order to validate sessions
+
+session_start();
+
+//if the session is registered to a valid user then allow update
+
+if (! session_is_registered("username")) {
+
+echo "invalid session detected!";
+
+// Redirect user to login page
+[...]
+
+exit;
+}
+
+// The user session is valid, so process the request
+// and update the information
+
+update_profile();
+
+function update_profile {
+// read in the data from $POST and send an update
+// to the database
+SendUpdateToDatabase($_SESSION['username'], $_POST['email']);
+[...]
+echo "Your profile has been successfully updated.";
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=html,frame=single,caption=przykładowy kod HTML wykorzystujący atak CSRF \cite{csrf-example},label=csrf03,numbers=left]
+<SCRIPT>
+function SendAttack () {
+form.email = "attacker@example.com";
+// send to profile.php
+form.submit();
+}
+</SCRIPT>
+
+<BODY onload="javascript:SendAttack();">
+
+<form action="http://victim.example.com/profile.php" id="form" method="post">
+<input type="hidden" name="firstname" value="Funny">
+<input type="hidden" name="lastname" value="Joke">
+<br/>
+<input type="hidden" name="email">
+</form>
+\end{lstlisting}
+
+Kod przedstawiony na przykładzie \ref{csrf01} zawiera przykładowy formularz na stronie internetowej, który składa się z pól umożliwiających wprowadzenie imienia, nazwiska i adresu e-mail. Zatwierdzenie formularza kieruje do strony umieszczonej na przykładzie \ref{csrf02}. Kod PHP sprawdza poprawność sesji użytkownika i aktualizuje dane przesłane w formularzu. Atakujący przygotowuje stronę (przykład \ref{csrf03}), na której umieszcza ukryty formularz. Po załadowaniu wykonuje się kod JavaScript, który wypełnia pola formularza i zatwierdza akcję. Ofiara nieświadomie zostaje przekierowania na stronę z przykładu \ref{csrf02} i przesyła tam dane przygotowane przez atakującego. Sesja przejdzie proces walidacji i dane zostaną zaktualizowane --- atak został wykonany poprawnie.
 
 \subsection{Korzystanie z komponentów o znanych podatnościach}
-\subsection{Brak weryfikacji przekierowań}
+Współczesne aplikacje internetowe korzystają z wielu komponentów, które zostały wykonane przez innych programistów i opublikowane w Internecie. Często są to duże biblioteki rozwijane przez społeczność, która składa się z osób o różnym doświadczeniu i wiedzy na temat metod bezpiecznego programowania. Wyzwaniem dla twórców oprogramowania jest ciągłe monitorowanie i weryfikacja aplikacji pod kątem podatności znalezionych w komponentach zależnych. 
+
+Biblioteki JavaScript często w nagłówkach plików zawierają informacje o wersji kodu. Te i inne informacje mogą być znalezione przez atakującego przy pomocy zautomatyzowanych procesów, a następnie wykorzystane do wykonania pełnej gamy ataków. Podobny problem może występować w bibliotekach wykorzystywanych po stronie serwera, gdzie ich istnienie można weryfikować na podstawie odpowiedzi serwera HTTP po zapytaniu o konkretny adres URL. 
+
+Niestety, monitorowanie podatności komponentów nie jest łatwym zadaniem. Nie wszystkie informacje trafiają do baz takich jak CVE czy NVD, nie istnieje również żaden standard opisu podatności. Proces często wymaga śledzenia wielu list dyskusyjnych czy stron internetowych, co ciężko jest zautomatyzować. Dla projektów realizowanych w JavaScript można wykorzystać projekt \cite{nodesec}, a dla języka Ruby stworzono \cite{rubysec}. Dla języków Java i .NET organizacja OWASP opublikowała projekt OWASP Dependency Check \cite{owaspdc}.
+
+\subsubsection*{Przykład}
+Play Framework \cite{playfw} to zrąb projektowy pozwalający na tworzenie aplikacji internetowych w językach Java i Scala. Oprogramowanie opierające się o Play w wersjach 2.0.0 - 2.4.6 były podatne na atak CSRF gdy przeglądarką ofiary był Google Chrome. Podatność opublikowana przez producenta \cite{playv1} zawierała opis obejścia podatności przez zmianę konfiguracji. Oficjalnym zaleceniem była aktualizacja wersji Play do 2.5.0.
+
+\subsection{Niewystarczająca ochrona interfejsów programistycznych (API)}
+
 
 \section{Mechanizmy wbudowane w przeglądarki internetowe}
 
@@ -312,11 +401,16 @@ Web Application Firewall to...
 \bibitem{symphony} https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff
 \bibitem{tweetdeck} http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6 [dostęp 03.05.2017 r.]
 \bibitem{directaccess} https://cwe.mitre.org/data/definitions/285.html
-\bibitem{thecartpress} https://www.htbridge.com/advisory/HTB23254 [dostę:p 06.05.2017 r.]
+\bibitem{thecartpress} https://www.htbridge.com/advisory/HTB23254 [dostęp: 06.05.2017 r.]
 \bibitem{django} https://www.djangoproject.com/
 \bibitem{wykop} http://prawo.vagla.pl/node/8629 [dostęp: 06.05.2017 r.]
 \bibitem{vk} http://thehackernews.com/2016/06/vk-com-data-breach.html [dostęp: 07.05.2017 r.]
-
+\bibitem{csrf-example} http://cwe.mitre.org/data/definitions/352.html [dostęp: 12.06.2017 r.]
+\bibitem{nodesec} https://nodesecurity.io/
+\bibitem{rubysec} https://rubysec.com/
+\bibitem{owaspdc} https://www.owasp.org/index.php/OWASP\_Dependency\_Check
+\bibitem{playfw} https://www.playframework.com/
+\bibitem{playv1} https://www.playframework.com/security/vulnerability/20160304-CsrfBypass
 \end{thebibliography}
 
 \end{document}
