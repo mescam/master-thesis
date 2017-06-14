@@ -1,5 +1,5 @@
 \documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
-
+%\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
 \usepackage[utf8]{inputenc}
 
 \usepackage{babel}
@@ -9,6 +9,8 @@
 \usepackage{hyperref}
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
+
+
 
 \graphicspath{ {images/} }
 
@@ -61,7 +63,7 @@ Powstała potrzeba posiadania zabezpieczenia podobnego do oprogramowania antywir
 \section*{Cel i zakres pracy}
 Celem niniejszej pracy magisterskiej jest stworzenie narzędzia pozwalającego na automatyczne testowanie konfiguracji Web Application Firewall. Test ma polegać na przygotowaniu zestawu wektorów ataku, przeprowadzenie tego ataku na testowany WAF, a~następnie ocenę czy ruch sieciowy został poprawnie zablokowany. W celu przygotowania pracy magisterskiej należało dokonać analizy bieżących zagrożeń dotyczących aplikacji internetowych i~zapoznanie się z istniejącymi rozwiązaniami klasy WAF (w szczególności ModSecurity\cite{modsec}). Następnie wykonano prototypową realizację narzędzia testującego i~przeprowadzono testy konfiguracji na przygotowanym środowisku. Na podstawie wyników testów podjęto próbę przygotowania zestawu reguł, które pozwoliłyby na zablokowanie zagrożeń, które nie zostały wykryte przez WAF.
 
-Struktura pracy jest następująca: TODO.
+Struktura pracy jest następująca. W rozdziale 2 zamieszczono wprowadzenie teoretyczne, które zawiera listę najpopularniejszych zagrożeń aplikacji internetowych, a także opisano metody ochrony przed atakami (w tym mechanizmy wbudowane w przeglądarki oraz zewnętrzne urządzenia i aplikacje). Rozdział 3 jest poświęcony projektowi narzędzia do przeprowadzania aktywnych testów bezpieczeństwa aplikacji chronionych przez Web Application Firewall. Zawiera opis architektury programu, definicję języka opisującego wektory ataków i szczegóły implementacji. Rozdział 5 to opis testów funkcjonalnych zaimplementowanego narzędzia. Rozdział 6 stanowi podsumowanie pracy.
 
 
 \chapter{Wprowadzenie teoretyczne}
@@ -277,7 +279,7 @@ Odnalezione podatności wymagają wytworzenia przez programistów odpowiedniej a
 Jednym z popularnych mechanizmów do obrony przed atakami siłowymi jest mechanizm \textit{CAPTCHA}. Polega on na wyświetleniu przy np. trzeciej i każdej kolejnej nieudanej próbie pewnego dodatkowego zadania, które użytkownik musi wykonać. Zazwyczaj polega to na przepisaniu frazy z wyświetlonego obrazu, który jest przygotowany w taki sposób, by utrudnić pracę algorytmom OCR. 
 
 
-\subsection{Cross-site request forgery (CSRF)}
+\subsection{Cross-Site Request Forgery (CSRF)}
 Jest to metoda ataku na aplikację internetową, która polega na wykorzystaniu przez atakującego uprawnień ofiary do nieświadomego wykonania przez nią określonej operacji. Atak ten jest często wykorzystywany razem z XSS.
 Ataki CSRF zazwyczaj powodują wykonanie żądania HTTP, które zmienia stan obiektu --- atakujący nie ma możliwości odebrania odpowiedzi na żądanie od serwera, dlatego atak ten jest skuteczny np.~przy zmianie hasła ofiary, wykonaniu przelewu lub w przypadku gdy użytkownik posiada podwyższone uprawnienia --- naruszeniu strony internetowej.
 
@@ -359,28 +361,107 @@ Niestety, monitorowanie podatności komponentów nie jest łatwym zadaniem. Nie 
 Play Framework \cite{playfw} to zrąb projektowy pozwalający na tworzenie aplikacji internetowych w językach Java i Scala. Oprogramowanie opierające się o Play w wersjach 2.0.0 - 2.4.6 były podatne na atak CSRF gdy przeglądarką ofiary był Google Chrome. Podatność opublikowana przez producenta \cite{playv1} zawierała opis obejścia podatności przez zmianę konfiguracji. Oficjalnym zaleceniem była aktualizacja wersji Play do 2.5.0.
 
 \subsection{Niewystarczająca ochrona interfejsów programistycznych (API)}
+Interfejsy programistyczne udostępniane przez współczesne aplikacje internetowe są przeznaczone do wykorzystywania w zewnętrznych aplikacjach. Brak interfejsu użytkownika, skomplikowane protokoły i struktury danych, różnorodne formaty (REST, XML, JSON, GWT, RPC) --- to czynniki, które utrudniają testy bezpieczeństwa. Wszystkie dotychczas przedstawione podatności mogą znajdować się również w API i należy podjąć odpowiednie kroki aby interfejs był bezpieczny i systematycznie testowany.
 
+Podstawowym elementem jest szyfrowanie kanałów komunikacji przy pomocy TLS. Przesyłanie danych przy pomocy jawnego tekstu może spowodować wyciek danych. Następnie należy zweryfikować metodę uwierzytelnienia i autoryzacji zapytań użytkowników, czy wykorzystywane algorytmy szyfrowania są odpowiednio silne a dane użytkowników przechowywane w bezpieczny sposób. Interfejsy programistyczne bardzo często przyjmują dane od użytkowników, prawidłowa walidacja danych zapewni ochronę przed atakami typu iniekcja kodu czy XSS.
+
+Interfejsy programistyczne są często wykorzystywane przez aplikacje mobilne do komunikacji z serwisem macierzystym. Przy pomocy inżynierii wstecznej atakujący może poznać kod źródłowy aplikacji i protokół komunikacji z serwerem. Przy projektowaniu API programista powinien mieć na uwadze fakt, że osoby niepowołane mogą poznać wykorzystywane algorytmy i struktury danych, dlatego zastosowanie odpowiednich zabezpieczeń i kontroli dostępu jest konieczne nawet w przypadku zamkniętego oprogramowania.
 
 \section{Mechanizmy wbudowane w przeglądarki internetowe}
+Nowoczesne przeglądarki internetowe implementują wiele mechanizmów chroniących użytkownika przed atakami typu XSS czy CSRF. Wykorzystanie znalezionej podatności na stronie internetowej jest często niemożliwe, ponieważ wspomniane mechanizmy blokują żądania HTTP na poziomie klienta. Podczas projektowania aplikacji i konfiguracji serwerów WWW należy mieć na uwadze wymagane dodatkowe nagłówki, których wartość jest weryfikowana podczas dynamicznych lub zagnieżdżonych odwołań (szczególnie między domenami). Organizacja OWASP opublikowała listę kilku najważniejszych zabezpieczeń zaimplementowanych w przeglądarkach \cite{html5security}.
 
+\subsection{Wiadomości między domenami}
+Przesyłanie wiadomości między dokumentami sieci Web zostało wprowadzone w specyfikacji HTML5. Wcześniej przeglądarki nie umożliwiały komunikacji między stronami internetowymi ze względów bezpieczeństwa. Udostępniony interfejs programistyczny pozwala na weryfikację adresu domeny nadawcy (ang.~\textit{origin}). Ważna jest również weryfikacja danych przesyłanych przy pomocy kanału. Nigdy nie należy traktować tych danych jako zaufane, w szczególności niezalecane jest bezpośrednie przekazanie treści wiadomości do interpretera (funkcje typu \textit{eval}).
+
+\subsection{Cross Origin Resource Sharing --- współdzielenie zasobów między domenami}
+Mechanizm ten pozwala na wykoniwanie asynchronicznych żądań (AJAX) między serwerami o różnych domenach przy zachowaniu weryfikacji źródła żądania. W przypadku dynamicznego odwołania do innej domeny, przeglądarka wyśle najpierw żądanie typu \textit{OPTIONS} i zweryfikuje zawartość nagłówka \textit{Access-Control-Allow-Origin}. Wartość \textit{*} pozwala na odwołania do zasobów z dowolnego źródła. Wszystkie inne żądania, które nie pasują do wzorca zdefiniowanego w wartości nagłówka zostaną zablokowane na poziomie przeglądarki (odpowiednia informacja o błędzie zostanie zazwyczaj wyświetlona w konsoli interpretera języka JavaScript). Mechanizm CORS pozwala również na weryfikację dopuszczalnych nagłówków przesłanych w żądaniu.
+
+\subsection{HTTP Strict Transport Security}
+HSTS to mechanizm zabezpieczający przed zmniejszeniem poziomu bezpieczeństwa kanału i przechwyceniem sesji. Serwer informuje przeglądarkę o stosowaniu HSTS przy pomocy nagłówka \textit{Strict-Transport-Security}, którego parametr oznacza czas przez który przeglądarka powinna wykorzystywać wyłącznie połączenia szyfrowane. Wszystkie odwołania do strony internetowej powinny być automatycznie tłumaczone z \textit{http://} na \textit{https://}, a jeżeli certyfikat jest niezaufany --- przeglądarka nie powinna pozwolić użytkownikowi na nawiązanie połączenia.
+
+\subsection{HTTP Public Key Pinning}
+Połączenie szyfrowane przy pomocy SSL nie gwarantuje tożsamości drugiej strony bez weryfikacji klucza publicznego drugiej strony. Atakujący mogą wykorzystać słabości mechanizmów urzędów certyfikacji i zmusić je do wydania certyfikatu typu DV (weryfikacja domeny), co przy próbie podszycia może dać złudne poczucie bezpieczeństwa komunikacji z serwerem. HPKP pozwala na przesłanie w nagłówku \textit{Public-Key-Pins} zestawu kluczy publicznych, które przez określony czas przeglądarka powinna uznawać za jedyne poprawne i nie dopuszczać do nawiązania połączenia z serwerem, który przedstawia się przy pomocy innego klucza.
 
 \section{Web Application Firewall}
 \label{waf}
-Web Application Firewall to...
+Web Application Firewall to zapora sieciowa dla aplikacji webowych. Dokonuje ona ewaluacji reguł na konwersacji HTTP. Reguły te pokrywają standardowe atacki takie jak iniekcja kodu SQL czy XSS. WAF ma za zadanie chronić aplikację internetową, przyjmuje żądania od wielu klientów i kieruje je na serwery WWW, stąd można go uznać jako odwrotny serwer pośredniczący, chociaż nie musi działać jako osobny proces.
+
+WAF jest dedykowany do ochrony aplikacji webowych, analizuje ruch na warstwie 7.~modelu OSI. Jest w stanie wykryć i zablokować żądania, których analiza byłaby niemożliwa przy pomocy standardowych rozwiązań takich jak zapora sieciowa czy system IPS. Zastosowanie WAF jest całkowicie transparentne dla aplikacji i nie wymaga modyfikacji kodu źródłowego.
+
+Zastosowanie tego rodzaju zabezpieczenia pozwala w znaczący sposób zredukować ryzyko wykorzystania podatności systemu bez faktycznego usunięcia tej podatności. W przypadku gdy wydanie odpowiedniej łatki na oprogramowanie może zająć bardzo dużo czasu --- dodanie odpowiednich reguł do zapory pozwala na uzyskanie szybkiej ochrony przed atakującymi.
+
+Kontrola ruchu może być realizowana przy pomocy dwóch modeli:
+\begin{itemize}
+\item \textbf{model negatywny} --- definiuje wzorce żądań potencjalnie niebezpiecznych, które zostaną zablokowane, zmodyfikowane lub zapisane, pozostałe zostaną przepuszczone;
+\item \textbf{model pozytywny} --- definiuje wzorce akceptowalnych żądań, pozostałe zostaną zablokowane lub zapisane w dzienniku.
+\end{itemize}
+
+Wyzwaniem dla administratora pozostaje stworzenie i aktualizacja listy reguł ewaluowanych przez zaporę. Reguły te powinny pokrywać zarówno odkryte podatności (przed wydaniem poprawki na oprogramowanie) jak i w maksymalny możliwy sposób chronić przed nieznanymi podatnościami, które mogą zostać wykorzystane zanim się o nich dowiemy, np.~jeżeli nasza aplikacja nie przyjmuje nigdzie danych zawierających słowa kluczowe języka SQL, to możemy stworzyć regułę w której wszystkie żądania zawierające słowa \textit{SELECT, UPDATE, DELETE} zostaną zablokowane.
 
 \subsection{Oprogramowanie}
+Web Application Firewall to mechanizm, który z powodzeniem może istnieć jako aplikacja uruchomiona w systemie operacyjnym. Proces ten działa dokładnie tak jak serwer WWW, ale realizuję funkcję odwrotnego pośrednika i po analizie żądania dokonuje blokady lub przekazuje pakiety do serwerów aplikacyjnych. Poniżej opisano dwa popularne rozwiązania WAF na licencji open-source.
+
 \subsubsection{ModSecurity}
+ModSecurity \footnote{\url{https://modsecurity.org/}} to wieloplatformowa zapora aplikacji sieciowych na licencji open-source. Oferuje szeroki wachlarz funkcjonalności, które można wykorzystać do ochrony przed atakami. Do najważniejszych scenariuszy zastosowań należy:
+\begin{itemize} 
+\item monitorowanie bezpieczeństwa aplikacji i kontroli dostępu w czasie rzeczywistym --- ModSecurity pozwala na podgląd strumienia danych HTTP,
+\item dziennik ruchu HTTP --- pozwala na zapis pełnej konwersacji HTTP w postaci surowej, co jest istotnym czynnikiem przy analizach powłamaniowych;
+\item ciągła pasywna ocena bezpieczeństwa --- monitorowanie w czasie rzeczywistym zachowania aplikacji i reagowanie na anomalie lub podatności, zanim zostaną one odkryte;
+\item zwiększenie bezpieczeństwa aplikacji --- główne zastosowanie ModSecurity, któRe pozwala na ograniczenie możliwości protokołu HTTP do podzbioru koniecznego do realizowania funkcji oferowanych przez aplikację.
+\end{itemize}
+
+ModSecurity oferuje dwa tryby wdrożeniowe, dzięki czemu można dostosować go do aktualnej architektury systemu i ograniczyć konieczność modyfikacji plików konfiguracyjnych serwerów WWW. Wspierane opcje to:
+\begin{itemize}
+\item tryb wbudowany --- praca jako moduł Apache \footnote{\url{https://apache.org/}}, nie wymaga wprowadznia zmian w przepływie ruchu przez infrastrukturę, skaluje się razem z serwerami WWW z którymi współdzieli zasoby;
+\item tryb samodzielny --- praca jako odwrotny serwer pośredniczący, polega na instalacji Apache z ModSecurity na osobnym serwerze, a następnie skonfigurowanie odpowiedniego przepływu danych do i z zapory, pozwala również na separację zasobów.
+\end{itemize}
+
+Organizacja OWASP rozwija i udostępnia projekt \textbf{OWASP ModSecurity Core Rule Set} \footnote{\url{https://www.owasp.org/index.php/Category:OWASP_ModSecurity_Core_Rule_Set_Project}}, którego celem jest dostarczenie łatwego w implementacji zestawu reguł wykrywających generyczne typy ataków, co pozwala na zapewnienie podstawowego poziomu protekcji dla każdej aplikacji internetowej. CRS oferuje zabezpieczenia przed: SQLi, XSS, zdalnym wykonaniem kodu, atakiem shellsock, przechwytywaniem i fiksacją sesji, itp.
+
 \subsubsection{NAXSI}
+NAXSI \footnote{\url{https://github.com/nbs-system/naxsi}} to darmowy, zewnętrzny moduł do serwera Nginx \footnote{\url{https://nginx.org/}}, który oferuje funkcjonalność WAF. Projekt zawiera również mały zestaw prostych reguł, które zawierają wzorce standardowych podatności aplikacji internetowych. Autorzy ostrzegają, że zastosowane wzorce mogą blokować poprawne żądania i należy dostosować białą listę (model pozytywny) do swoich potrzeb. Może to być wykonane ręcznie przez analizę dzienników zdarzeń albo przez tryb samouczący, który automatycznie wygeneruje zestaw reguł na podstawie zachowania aplikacji.
+
+NAXSI nie polega na sygnaturach ataków, filtruje tylko żądania GET i POST, analizowany jest wyłącznie ruch przychodzący --- jeżeli złośliwy kod znajduje się już na stronie to żądania go zwracające nie będą blokowane.
+
+Algorytm oceny zagrożenia jest następujący \cite{naxsi-sekurak}:
+\begin{enumerate}
+\item żądanie jest dzielone na strefy (ARGS, URL, BODY, HEADERS),
+\item dla każdej strefy dokonuje się ewaluacji czarnej listy na podstawie której żądaniu przypisywane są punkty,
+\item dla każdej strefy dokonuje się ewaluacji białej listy, której działanie może zignorować przyznane punkty;
+\item punkty są sumowane,
+\item jeżeli suma przekroczyła próg, żądanie jest blokowane.
+\end{enumerate}
 
 \subsection{Urządzenia}
+Wiele firm oferujących sprzęt sieciowy ma w swojej ofercie urządzenia typu UTM, które posiadają moduły działające na zasadzie Web Application Firewall. Są to dedykowane urządzenia, które ingerują w infrastrukturę sieciową systemu, dlatego nie mogą być stosowane w miejscach, gdzie administrator nie ma pełnej kontroli nad warstwą sieciową.
 \subsubsection{Citrix Netscaller Application Firewall}
 \subsubsection{Fortinet FortiWeb}
 
 \subsection{Rozwiązania chmurowe}
+Dostawcy rozwiązań chmurowych również w swojej ofercie mają Web Application Firewall w modelu SaaS (\textit{Software as a Service}). Często moduły te są zintegrowane z innymi usługami, np. Content Delivery Network. W odróżnieniu od sprzętu fizycznego, WAF jako usługa jest łatwy w implementacji oraz oferuje korzystny model płatności, np.~rozliczanie za liczbę reguł lub ilość danych.
 \subsubsection{Amazon Web Services WAF}
-\subsubsection{Cloudflare}
+AWS WAF to usługa oferowana w ramach Amazon Web Services \footnote{\url{https://aws.amazon.com}}. Pozwala na filtrowanie ruchu na podstawie stworzonych reguł, które mogą zawierać: adresy IP, nagłówki HTTP i ciągi znaków URI. Konfiguracja systemu jest możliwa przy pomocy interfejsów programistycznych, co pozwala na automatyzację mechanizmów wdrażania modelu bezpieczeństwa na podstawie zdefiniowanych przez programistów reguł. Usługa jest zintegrowana z CloudFront i Application Load Balancer. CloudFront to system CDN, który umożliwia geograficzne rozproszenie plików statycznych, co znacznie skraca czas ładowania dla użytkownika końcowego. Application Load Balancer oferuje rozkładanie obciążenia w ruchu HTTP między serwerami aplikacyjnymi, dzięki temu konfiguracja WAF abstrahuje od warstwy serwerów, które są odbiorcami ruchu. AWS WAF oferuje elastyczny model płatności, w którym właściciel płaci za liczbę posiadanych reguł i liczbę żądań, które zostały przesłane przez system.
 
-\section{Intrusion Prevention System}
+Na uwagę zasługuje fakt, że CloudFront jest często wykorzystywany przez aplikacje internetowe, które nie są w pełni utrzymywane w infrastrukturze Amazon Web Services. Integracja mechanizmów WAF nie wymaga pełnej migracji do chmury publicznej.
+
+
+\subsubsection{Cloudflare Cloud Web Application Firewall}
+Cloud Web Application Firewall to usługa oferowana w ramach Cloudflare CDN, usługi podobnej do CloudFront. Oferowany mechanizm w znaczącym stopniu różni się od pozostałych tego typu usług. Zestaw reguł jest utrzymywany przez inżynierów bezpieczeństwa pracujących dla Cloudflare. W przypadku gdy pojawia się nowa podatność, a inżynierowie stwierdzą zagrożenie znacznej części użytkowników, reguła jest aplikowana dla całego systemu.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.7]{cloudflare}
+
+\caption{przedstawienie szybkości czasu dodania reguły do Cloudflare WAF względem rozwiązań on-premise \cite{cloudflarewaf}}
+\label{fig:cloudflare}
+\end{figure}
+
+Według dostawcy, zaledwie 2\% \footnote{stan na 14.06.2017 r.} zdarzeń blokowanych przez WAF powodują reguły zdefiniowane bezpośrednio przez użytkowników, natomiast 86\% to reguły zdefiniowane przez inżynierów Cloudflare.
+
+Dodatkowym elementem systemu jest ,inteligencja zbiorowa''. Kiedy użytkownik zdefiniuje własną regułę, system analizuje czy ma ona zastosowanie dla innych domen utrzymywanych przez Cloudflare. Jeżeli tak jest, to reguła zostaje zastosowana w całym systemie.
+
+
+%\section{Intrusion Prevention System}
 
 \chapter{Implementacja systemu}
 
@@ -392,25 +473,30 @@ Web Application Firewall to...
 \backmatter
 
 \begin{thebibliography}{1}
-\bibitem{cve} Common Vulnerabilities and Exposures, https://cve.mitre.org/ [dostęp: 17 marca 2017]
-\bibitem{wordpress} https://wordpress.org/
-\bibitem{joomla} https://www.joomla.org/
-\bibitem{ipb} https://invisionpower.com/
-\bibitem{modsec} https://modsecurity.org/
-\bibitem{owasp} https://www.owasp.org/
-\bibitem{symphony} https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff
-\bibitem{tweetdeck} http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6 [dostęp 03.05.2017 r.]
-\bibitem{directaccess} https://cwe.mitre.org/data/definitions/285.html
-\bibitem{thecartpress} https://www.htbridge.com/advisory/HTB23254 [dostęp: 06.05.2017 r.]
-\bibitem{django} https://www.djangoproject.com/
-\bibitem{wykop} http://prawo.vagla.pl/node/8629 [dostęp: 06.05.2017 r.]
-\bibitem{vk} http://thehackernews.com/2016/06/vk-com-data-breach.html [dostęp: 07.05.2017 r.]
-\bibitem{csrf-example} http://cwe.mitre.org/data/definitions/352.html [dostęp: 12.06.2017 r.]
-\bibitem{nodesec} https://nodesecurity.io/
-\bibitem{rubysec} https://rubysec.com/
-\bibitem{owaspdc} https://www.owasp.org/index.php/OWASP\_Dependency\_Check
-\bibitem{playfw} https://www.playframework.com/
-\bibitem{playv1} https://www.playframework.com/security/vulnerability/20160304-CsrfBypass
+\bibitem{cve} Common Vulnerabilities and Exposures, \url{https://cve.mitre.org/} [dostęp: 17 marca 2017]
+\bibitem{wordpress} \url{https://wordpress.org/}
+\bibitem{joomla} \url{https://www.joomla.org/}
+\bibitem{ipb} \url{https://invisionpower.com/}
+\bibitem{modsec} \url{https://modsecurity.org/}
+\bibitem{owasp}\url{ https://www.owasp.org/}
+\bibitem{symphony} \url{https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff}
+\bibitem{tweetdeck} \url{http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6} [dostęp 03.05.2017 r.]
+\bibitem{directaccess} \url{https://cwe.mitre.org/data/definitions/285.html}
+\bibitem{thecartpress} \url{https://www.htbridge.com/advisory/HTB23254} [dostęp: 06.05.2017 r.]
+\bibitem{django} \url{https://www.djangoproject.com/}
+\bibitem{wykop} \url{http://prawo.vagla.pl/node/8629} [dostęp: 06.05.2017 r.]
+\bibitem{vk} \url{http://thehackernews.com/2016/06/vk-com-data-breach.html} [dostęp: 07.05.2017 r.]
+\bibitem{csrf-example} \url{http://cwe.mitre.org/data/definitions/352.html} [dostęp: 12.06.2017 r.]
+\bibitem{nodesec} \url{https://nodesecurity.io/}
+\bibitem{rubysec} \url{https://rubysec.com/}
+\bibitem{owaspdc} \url{https://www.owasp.org/index.php/OWASP\_Dependency\_Check}
+\bibitem{playfw} \url{https://www.playframework.com/}
+\bibitem{playv1} \url{https://www.playframework.com/security/vulnerability/20160304-CsrfBypass}
+\bibitem{html5security} \url{https://www.owasp.org/index.php/HTML5\_Security\_Cheat\_Sheet} [dostęp: 13.06.2017 r.]
+\bibitem{scholar1} Yao-Wen Huang, Shih-Kun Huang, Tsung-Po Lin, and Chung-Hung Tsai. 2003. Web application security assessment by fault injection and behavior monitoring. In Proceedings of the 12th international conference on World Wide Web (WWW '03). ACM, New York, NY, USA, 148-159.
+\bibitem{scholar2} Dafydd Stuttard, Marcus Pinto. 2011. The Web Application Hacker's Handbook: Finding and Exploiting Security Flaws. Second Edition.
+\bibitem{naxsi-sekurak} Daniel Iziourov. 2017. Czym jest Web Application Firewall? – część pierwsza: na przykładzie naxsi. Sekurak.pl. https://sekurak.pl/czym-jest-web-application-firewall-czesc-pierwsza-na-przykladzie-naxsi/ [dostęp 14.06.2017 r.]
+\bibitem{cloudflarewaf} Cloudflare Web Application Firewall, \url{https://www.cloudflare.com/waf/}, [dostęp: 14.06.2017 r.]
 \end{thebibliography}
 
 \end{document}
