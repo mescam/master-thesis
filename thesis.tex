@@ -434,8 +434,33 @@ Algorytm oceny zagrożenia jest następujący \cite{naxsi-sekurak}:
 
 \subsection{Urządzenia}
 Wiele firm oferujących sprzęt sieciowy ma w swojej ofercie urządzenia typu UTM, które posiadają moduły działające na zasadzie Web Application Firewall. Są to dedykowane urządzenia, które ingerują w infrastrukturę sieciową systemu, dlatego nie mogą być stosowane w miejscach, gdzie administrator nie ma pełnej kontroli nad warstwą sieciową.
+
 \subsubsection{Citrix Netscaller Application Firewall}
+Citrix Netscaller AppFirewall \cite{citrix} to komercyjny produkt wbudowany w urządzenia sieciowe firmy Citrix. Jest to kompleksowe rozwiązanie zapory aplikacyjnej, które analizuje ruch sieciowy w obu stronach (również szyfrowany przy pomocy SSL/TLS) i zabezpiecza przed zagrożeniami bezpieczeństwa. AppFirewall oferuje możliwość dokładnej analizy pakietów zawierających dane HTTP, HTTPS i XML.
+
+Rozwiązanie to jest w stanie zabezpieczyć system przed atakami opisanymi w OWASP Top10, jak również analizować format żądań i odpowiedzi HTTP. Wbudowane mechanizmy pozwalają na zapobieganie ujawnieniu wrażliwych danych, np.~przeszukując dane pod kątem numerów kart kredytowych.
+
+Citrix AppFirewall wykorzystuje hybrydowy model oceny zagrożenia (pozytywny i negatywny), dodatkowo posiada wbudowany system reputacji adresów IP, który na bieżąco analizuje połączenia i blokuje adresy, które zostały globalnie uznane za niebezpieczne. Lista jest tworzona na podstawie danych z milionów sensorów na całym świecie i jest aktualizowana co 5 minut.
+
 \subsubsection{Fortinet FortiWeb}
+Fortinet FortiWeb \cite{fortiweb} to rozwiązanie typu WAF oferowane przez sprzęt sieciowy firmy Fortinet. FortiWeb oferuje m.in.:
+\begin{itemize}
+\item do 20 Gbps przepustowości,
+\item wykrywanie skorelowanych zagrożeń przy pomocy skanowania behawioralnego,
+\item zaawansowana protekcja przez integrację z innymi produktami firmy Fortinet,
+\item zaawansowane narzędzia do minimalizacji fałszywych alarmów,
+\item integracja z narzędziami firm trzecich,
+\item wirtualne łatki.
+\end{itemize}
+
+Zagrożenia są wykrywane na podstawie skorelowanych danych z następujących elementów systemu:
+\begin{itemize}
+\item reputacja IP,
+\item ochrona przed DDoS,
+\item walidacja protokołów,
+\item skaner sygnatury ataków,
+\item antywirus.
+\end{itemize}
 
 \subsection{Rozwiązania chmurowe}
 Dostawcy rozwiązań chmurowych również w swojej ofercie mają Web Application Firewall w modelu SaaS (\textit{Software as a Service}). Często moduły te są zintegrowane z innymi usługami, np. Content Delivery Network. W odróżnieniu od sprzętu fizycznego, WAF jako usługa jest łatwy w implementacji oraz oferuje korzystny model płatności, np.~rozliczanie za liczbę reguł lub ilość danych.
@@ -458,12 +483,52 @@ Cloud Web Application Firewall to usługa oferowana w ramach Cloudflare CDN, us�
 
 Według dostawcy, zaledwie 2\% \footnote{stan na 14.06.2017 r.} zdarzeń blokowanych przez WAF powodują reguły zdefiniowane bezpośrednio przez użytkowników, natomiast 86\% to reguły zdefiniowane przez inżynierów Cloudflare.
 
-Dodatkowym elementem systemu jest ,inteligencja zbiorowa''. Kiedy użytkownik zdefiniuje własną regułę, system analizuje czy ma ona zastosowanie dla innych domen utrzymywanych przez Cloudflare. Jeżeli tak jest, to reguła zostaje zastosowana w całym systemie.
+Dodatkowym elementem systemu jest ,,inteligencja zbiorowa''. Kiedy użytkownik zdefiniuje własną regułę, system analizuje czy ma ona zastosowanie dla innych domen utrzymywanych przez Cloudflare. Jeżeli tak jest, to reguła zostaje zastosowana w całym systemie.
 
 
 %\section{Intrusion Prevention System}
 
 \chapter{Implementacja systemu}
+W ramach niniejszej pracy stworzono narzędzie pozwalające na automatyczną weryfikację konfiguracji rozwiązań typu Web Application Firewall przez przeprowadzenie serii scenariuszy komunikacji HTTP i analizę odpowiedzi serwerów internetowych. Narzędzie wymagało zaprojektowanie języka formalnego, który służy do opisu komunikacji z serwerem. 
+
+\section{Interpretery i biblioteki}
+Do implementacji systemu wykorzystano język skryptowy Python i szereg bibliotek, które ułatwiły zarówno komunikację z użytkownikiem jak i przeprowadzenie komunikacji z serwerem.
+
+\subsection{Python}
+System został napisany w języku Python 3.6 \footnote{https://python.org/}. Jest to wieloparadygmatowy język interpretowany, stworzony w roku 1991 przez Guido van Rossuma w Centrum Matematyki i Informatyki w Amsterdamie.
+
+Główny interpreter języka -- CPython został zaimplementowany w języku C i jest dostępny na wielu platformach, jednakże stworzone w ramach pracy narzędzie zostało przetestowane wyłącznie na systemach z rodziny GNU/Linux.
+
+Język ten został wybrany ze względu na możliwość stosowania dowolnych paradygmatów programowania i dynamiczne typowanie. Narzędzie dokonuje wielu operacji na tekście i plikach, których realizacja we wspomnianym języku jest bardzo łatwa i zajmuje niewiele linii kodu. Te cechy Pythona znacznie skróciły czas potrzebny na implementację systemu. Dodatkową zaletą jest obecność interpretera CPython domyślnie po instalacji wielu dystrybucji systemu GNU/Linux.
+
+\subsection{Biblioteka \textit{requests}}
+Komunikacja z serwerami przy pomocy protokołu HTTP nie jest łatwa do osiągnięcia w większości języków programowania. Wbudowane mechanizmy są zazwyczaj bardzo niskopoziomowe, nie zawierają wbudowanych zabezpieczeń i bardzo łatwo jest popełnić trudne w wykryciu błędy. W przypadku biblioteki standardowej dostępnej w języku Python --- \textit{urllib} --- programista musi samodzielnie dbać o enkodowanie żądań, definiowanie odpowiednich nagłówków i obsługę błędów. Proste żądanie HTTP wymaga wielu kroków, co znacznie zaciemnia kod (przykład \ref{urllib}).
+
+\begin{lstlisting}[language=python,frame=single,caption=Wykorzystanie biblioteki urllib,label=urllib,numbers=left]
+import urllib.parse
+import urllib.request
+
+url = 'http://strona-przykladowa.com/rejestracja.php'
+val = {'foo': 'bar'}
+
+data = urllib.parse.urlencode(val)
+req = urllib.request.Request(url, data)
+
+response = urllib.request.urlopen(req)
+result = response.read()
+\end{lstlisting}
+
+Z uwagi na powyższe, zdecydowano się na użycie zewnętrznej biblioteki \textit{requests} \footnote{\url{http://docs.python-requests.org/en/master/}}. Celem tej biblioteki jest dostarczenie interfejsu pozwalającego na przeprowadzanie żądań HTTP na odpowiednim poziomie abstrakcji. Kod z przykładu \ref{urllib} dzięki temu można skrócić do następującej formy:
+\begin{lstlisting}[language=python,frame=single,label=req1,numbers=left]
+import requests
+url = 'http://strona-przykladowa.com/rejestracja.php'
+val = {'foo': 'bar'}
+
+res = requests.get(url, data=val)
+\end{lstlisting}
+
+
+ 
 
 \chapter{Testy funkcjonalne}
 
@@ -497,6 +562,8 @@ Dodatkowym elementem systemu jest ,inteligencja zbiorowa''. Kiedy użytkownik zd
 \bibitem{scholar2} Dafydd Stuttard, Marcus Pinto. 2011. The Web Application Hacker's Handbook: Finding and Exploiting Security Flaws. Second Edition.
 \bibitem{naxsi-sekurak} Daniel Iziourov. 2017. Czym jest Web Application Firewall? – część pierwsza: na przykładzie naxsi. Sekurak.pl. https://sekurak.pl/czym-jest-web-application-firewall-czesc-pierwsza-na-przykladzie-naxsi/ [dostęp 14.06.2017 r.]
 \bibitem{cloudflarewaf} Cloudflare Web Application Firewall, \url{https://www.cloudflare.com/waf/}, [dostęp: 14.06.2017 r.]
+\bibitem{citrix} Citrix NetScaler AppFirewall, \url{https://www.citrix.com.pl/products/netscaler-appfirewall/}, [dostęp: 1 sierpnia 2017 r.]
+\bibitem{fortiweb} Fortinet FortiWeb WAF, \url{https://www.fortinet.com/products/web-application-firewall/fortiweb.html}, [dostęp: 1 sierpnia 2017 r.]
 \end{thebibliography}
 
 \end{document}
