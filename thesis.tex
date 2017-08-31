@@ -1,5 +1,5 @@
-\documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
-%\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
+%\documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
+\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
 \usepackage[utf8]{inputenc}
 
 \usepackage{babel}
@@ -7,8 +7,47 @@
 \usepackage{listings}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\usepackage{pdfpages}
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
+
+\newcommand\YAMLcolonstyle{\color{red}\mdseries}
+\newcommand\YAMLkeystyle{\color{black}\bfseries}
+\newcommand\YAMLvaluestyle{\color{blue}\mdseries}
+
+\makeatletter
+
+% here is a macro expanding to the name of the language
+% (handy if you decide to change it further down the road)
+\newcommand\language@yaml{yaml}
+
+\expandafter\expandafter\expandafter\lstdefinelanguage
+\expandafter{\language@yaml}
+{
+  keywords={true,false,null,y,n},
+  keywordstyle=\color{darkgray}\bfseries,
+  basicstyle=\YAMLkeystyle,                                 % assuming a key comes first
+  sensitive=false,
+  comment=[l]{\#},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\YAMLvaluestyle\ttfamily,
+  moredelim=[l][\color{orange}]{\&},
+  moredelim=[l][\color{magenta}]{*},
+  moredelim=**[il][\YAMLcolonstyle{:}\YAMLvaluestyle]{:},   % switch to value style at :
+  morestring=[b]',
+  morestring=[b]",
+  literate =    {---}{{\ProcessThreeDashes}}3
+                {>}{{\textcolor{red}\textgreater}}1     
+                {|}{{\textcolor{red}\textbar}}1 
+                {\ -\ }{{\mdseries\ -\ }}3,
+}
+
+% switch to key style at EOL
+\lst@AddToHook{EveryLine}{\ifx\lst@language\language@yaml\YAMLkeystyle\fi}
+\makeatother
+
+\newcommand\ProcessThreeDashes{\llap{\color{cyan}\mdseries-{-}-}}
 
 
 
@@ -527,13 +566,96 @@ val = {'foo': 'bar'}
 res = requests.get(url, data=val)
 \end{lstlisting}
 
+\subsection{Biblioteka \textit{pyyaml}}
+YAML \footnote{\url{http://www.yaml.org/}} to język formalny, który można wykorzystać do reprezentowania różnych, ustrukturalizowanych danych. Pierwsza wersja została zaproponowana w 2001 roku przez Clarka Evansa. Według specyfikacji \cite{yamlspec} najważniejsze cele języka to: 
+\begin{itemize}
+\item czytelność,
+\item przenośność między językami programowania,
+\item odwzorowanie struktur danych w językach programowania,
+\item łatwość implementacji w narzędziach do przetwarzania tekstu,
+\item przetwarzanie przy pomocy jednego przejścia,
+\item rozszerzalność,
+\item łatwość użytkowania.
+\end{itemize}
 
+Elementy struktur danych oddzielone są znakami nowej linii, a zagnieżdżenie odbywa się przy pomocy wcięć. Podstawowe struktury danych to: listy, słowniki i skalary.
+
+W przypadku języka Python dostępna jest biblioteka PyYAML \footnote{\url{http://pyyaml.org/}}, która dokonuje konwersji z postaci YAML na struktury danych wbudowane w język Python. Biblioteka ta została wykorzysta w projekcie do podstawowego tłumaczenia języka definicji ataków na obiekty zrozumiałe dla programu.
+
+\section{Schematy przeływu informacji i zależności}
+Zaimplementowane narzędzie ma służyć do automatycznego testowania aplikacji zabezpieczonej mechanizmem Web Application Firewall. Administrator dostarcza zbiór plików opisujących przebieg ataku na aplikacje w formie zgodnej ze zdefiniowanym językiem, a następnie uruchamia narzędzie i oczekuje na raport końcowy.
+
+\begin{figure}
+\centering
+\centerline{\includegraphics{schemat.pdf}}
+\caption{diagram sekwencji w systemie}
+\label{fig:przeplyw}
+\end{figure}
+
+
+Przebieg działania programu opisuje rysunek \ref{fig:przeplyw}. Administrator wydaje polecenie uruchomienia narzędzie testującego i czeka na zakończenie działania programu. Pierwszy atak składa się z dwóch żądań. Pierwsze żądanie (przygotowanie) zostaje wysłane do WAF, a ten przekazuje je aplikacji. Odpowiedź aplikacji zostaje przesłana do testera, który może np. zapisać otrzymane ciasteczko i wykorzystać je przy kolejnym żądaniu. Żądanie 2 to już właściwy atak, który po przekazaniu do WAF zostaje zablokowany (brak komunikacji z aplikacją), a negatywna odpowiedź zostaje wysłana klientowi. Drugi atak jest podobny, składa się z dwóch żądań, ale drugie zapytanie zostaje przekazane do aplikacji, która odpowiada (potencjalnie ujawniając informacje wrażliwe). Po otrzymaniu odpowiedzi od WAF, sekwencja kończy się a administrator otrzymuje raport o przebiegu testu.
+
+Aplikacja składa się z trzech modułów. Pierwszy moduł opisany jako ,,CLI'' odpowiada za komunikację z użytkownikiem przez interfejs tekstowy i kontrolę przepływu programu. Odbiera parametry przekazane przez administratora przy pomocy linii poleceń i ustawia przebieg testu. Przeszukuje i filtruje listę dostępnych ataków i ładuje definicje do pamięci, by następnie przekazać je do modułu konwertera.
+
+Konwerter jest najważniejszym modułem, jego zadaniem jest tłumaczenie definicji z języka formalnego na obiekt żądania i obsługi odpowiedzi HTTP. Język dziedzinowy zdefiniowany na potrzeby narzędzia zawiera opis konwersacji z serwerem WWW. Na podstawie tego opisu konwerter przygotowuje obiekty, które zawierają metody odpowiedzialne za połączenie z serwerem, przekazanie odpowiednich parametrów w URI i ciele żądanie, załadowanie ciasteczek i obsługę odpowiedzi --- zapis danych, wyrażenia regularne na odpowiedzi, definicje sukcesu i porażki ataku.
+Kolejnym modułem jest wykonawca. Otrzymuje on obiekty ataku i wykonuje je (sekwencyjnie lub równolegle), aby na koniec zebrać rezultaty ataków i przygotować raport, który zostaje przekazany do do użytkownika.
  
+\section{Opis języka definicji ataków} 
+Do opisu przebiegu ataków na aplikacje internetowe wykorzystano składnię języka YAML.
+Plik główny zawiera listę słowników, gdzie każdy element listy zawiera jedną składową konwersacji (żądanie i odpowiedź). Obiekt zawiera dwa elementy: $request$ i $answer$. System pozwala na definicję ataku składającego się z dowolnej liczby kolejnych żądań HTTP, ale przebieg ataku musi być sekwencyjny i liniowy.
+
+Obiekt $request$ zawiera informacje odnośnie żądania HTTP jakie ma zostać wykonane do serwera. Znajdują się tam takie elementy jak: lokalizacja atakowanego pliku, metoda żądania, dane przekazane do serwera, ciasteczka, dodatkowe nagłówki.
+
+Obiekt $answer$ może zawierać podobiekt $success$ lub $failure$. Każdy z nich zawiera odpowiednio definicję sukcesu lub porażki ataku. Spełnienie kryteriów sukcesu powoduje przejście do kolejnego kroku (lub oznaczenie ataku jako przeprowadzonego pomyślnie). Definicja sukcesu/porażki odbywa się na podstawie kilku dostępnych filtrów: statusu HTTP, zawierania frazy w odpowiedzi, nagłówków, itp.
+
+Pełny opis języka został zamieszczony w dodatku \ref{opisjezyka}.
+
+\begin{lstlisting}[language=YAML,frame=single,label=def1,numbers=left,caption=przykład podstawowej definicji ataku]
+---
+- request:
+    uri: index.php
+    method: GET
+    data:
+      id: "\"aaaa or 1=1"
+  answer:
+    success:
+      content_contains: unknown column
+\end{lstlisting}
+
+Przykład \ref{def1} zawiera opis prostego ataku typu SQL Injection. Składa się z jednego żądania HTTP, którego celem jest plik $index.php$. Przy pomocy metody \textit{GET} zostają wysłane dane zawarte pod kluczem $data$. System automatycznie dokona konwersji parametrów na ciąg znaków zgodnych ze standardem właściwym dla URL. W przykładzie dla parametru $id$ przypisano ciąg znaków typowy dla ataków SQL Injection.
+Odpowiedź zawiera wyłącznie definicję powodzenia, która jest wnioskowana na podstawie zawierania frazy ,,\textit{unknown column}'' w ciele odpowiedzi serwera.
+
 
 \chapter{Testy funkcjonalne}
+Po implementacji systemu dokonano testów funkcjonalnych, których celem było sprawdzenie narzędzia pod kątem spełnialności założeń. 
+
+\section{Środowisko testowe}
+Testy zostały wykonane na komputerze z zainstalowanym systemem Debian GNU/Linux z jądrem w wersji 4.12. Do separacji środowisk wykorzystano narzędzie Docker \footnote{\url{https://www.docker.com}}, która pozwala na tworzenie kontenerów aplikacyjnych. Kontenery te zawierają swój własny system plików, biblioteki i narzędzia wymagane przez system operacyjny. Nad izolacją procesów czuwał mechanizm \textit{cgroups} wbudowany w jądro systemu operacyjnego.
+
+Jako serwer WWW wykorzystano \textit{nginx} \footnote{\url{https://nginx.org/en/}} w wersji 1.12. W przypadku testowania gotowego oprogramowania (takiego jak np.~Wordpress) wykorzystano zależności zdefiniowane przez opiekuna definicji kontenera Docker.
+
+\textbf{TU JESZCZE BĘDZIE DO DOKOŃCZENIA...}
+\section{Przygotowane ataki}
+
+\section{Przebieg testów}
 
 
 \chapter{Zakończenie}
+Bezpieczeństwo aplikacji to bardzo istotny element budowy każdego biznesu opartego o usługi internetowe. Dbanie o poufność danych powierzonych przez użytkowników jest często krytyczne dla całej marki, ponieważ ujawnienie np.~numerów kart kredytowych stanowi nie tylko poważne zagrożenie utraty pieniędzy przez klientów, ale również utratę zaufania do produktu, często bezpowrotnie.
+
+Istnieje wiele rodzajów wektorów ataku, są one często pozornie nieszkodliwe. Nawet drobne zaniedbanie może spowodować w ostateczności utratę danych lub zatrzymanie usługi. Przy projektowaniu i implementacji aplikacji internetowych należy pamiętać, że bardzo często wykorzystywane są komponenty napisane przez osoby trzecie i nie mamy gwarancji, że są one bezpieczne i nie zostanie w nich wykryta luka. Należy tutaj pamiętać o aktualizacji zarówno komponentów oprogramowania jak i całego systemu operacyjnego.
+
+Usługi internetowe powinny mieć wdrożone procedury ciągłej ewaluacji bezpieczeństwa infrastruktury i oprogramowania. Pozwoli to na szybkie reagowanie w przypadku zagrożenia, co może być kluczowe dla bezpieczeństwa danych składowanych w systemie. Opublikowane exploity w postaci tzw. \textit{0day} mogły być wykorzystywane już znacznie wcześniej przez innych crackerów. Wdrożone procedury powinny zawierać również cykliczne przeprowadzanie testów penetracyjnych powierzonych zewnętrznym firmom. Powierzenie takich testów specjalistom z zakresu bezpieczeństwa znacznie zwiększa naszą pewność co do jakości infrastruktury i oprogramowania, a także poziomu świadomości bezpieczeństwa IT wśród pracowników. Należy jednak mieć na uwadze, że nawet wielokrotne testy penetracyjne nie dają gwarancji pewności, a jedynie zmniejszają prawdopodobieństwo ludzkiego błędu.
+
+Oprogramowanie typu \textit{Web Application Firewall} stanowi jedynie dodatkową zaporę, która chroni system przed atakiem. Może ono być częścią większego systemu wykrywania intruzów, a także monitorować ruch wychodzący. Taki dodatkowy element filtracji zapytań jest szczególnie ważny, gdy system składa się z elementów, w których nie mamy możliwości edytowania kodu źródłowego (brak odpowiednich zasobów ludzkich, niewolna licencja). Odpowiednia łatka może pojawić się znacznie szybciej niż oficjalna aktualizacja producenta, a do tego czasu nasz system pozostawałby narażony na zagrożenia. Dodatkowe reguły generyczne mogą chronić nas nawet przed nieopublikowanymi podatnościami, co stanowi dodatkową korzyść przemawiającą za wykorzystaniem takiego rozwiązania.
+
+Nieprawidłowe zrozumienie czym jest i jak działa WAF może prowadzić do złudnego poczucia bezpieczeństwa i np.~zlekceważenia podstawowych jej zasad. W każdym systemie najważniejszym elementem jest docelowa aplikacja i priorytetem powinno być dbanie o jakość kodu i zgodność ze standardami, a WAF czy IDS (Intrusion Detection System) powinny być wyłącznie dodatkami, których mechanizmy powinny zadziałać dopiero w ostateczności.
+ 
+
+\appendix
+\chapter{Opis języka definicji ataków}
+\label{opisjezyka}
+\chapter{Przewodnik użytkownika}
 
 \backmatter
 
@@ -564,6 +686,7 @@ res = requests.get(url, data=val)
 \bibitem{cloudflarewaf} Cloudflare Web Application Firewall, \url{https://www.cloudflare.com/waf/}, [dostęp: 14.06.2017 r.]
 \bibitem{citrix} Citrix NetScaler AppFirewall, \url{https://www.citrix.com.pl/products/netscaler-appfirewall/}, [dostęp: 1 sierpnia 2017 r.]
 \bibitem{fortiweb} Fortinet FortiWeb WAF, \url{https://www.fortinet.com/products/web-application-firewall/fortiweb.html}, [dostęp: 1 sierpnia 2017 r.]
+\bibitem{yamlspec} YAML 1.2, \url{http://www.yaml.org/spec/1.2/spec.html#id2708649}, [dostęp: 15 sierpnia 2017 r.]
 \end{thebibliography}
 
 \end{document}
