@@ -1,5 +1,5 @@
-%\documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
-\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
+\documentclass[11pt,a4paper,polish,thesis,oneside]{dcsbook}
+%\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
 \usepackage[utf8]{inputenc}
 
 \usepackage{babel}
@@ -506,7 +506,7 @@ Dostawcy rozwiązań chmurowych również w swojej ofercie mają Web Application
 \subsubsection{Amazon Web Services WAF}
 AWS WAF to usługa oferowana w ramach Amazon Web Services \footnote{\url{https://aws.amazon.com}}. Pozwala na filtrowanie ruchu na podstawie stworzonych reguł, które mogą zawierać: adresy IP, nagłówki HTTP i ciągi znaków URI. Konfiguracja systemu jest możliwa przy pomocy interfejsów programistycznych, co pozwala na automatyzację mechanizmów wdrażania modelu bezpieczeństwa na podstawie zdefiniowanych przez programistów reguł. Usługa jest zintegrowana z CloudFront i Application Load Balancer. CloudFront to system CDN, który umożliwia geograficzne rozproszenie plików statycznych, co znacznie skraca czas ładowania dla użytkownika końcowego. Application Load Balancer oferuje rozkładanie obciążenia w ruchu HTTP między serwerami aplikacyjnymi, dzięki temu konfiguracja WAF abstrahuje od warstwy serwerów, które są odbiorcami ruchu. AWS WAF oferuje elastyczny model płatności, w którym właściciel płaci za liczbę posiadanych reguł i liczbę żądań, które zostały przesłane przez system.
 
-Na uwagę zasługuje fakt, że CloudFront jest często wykorzystywany przez aplikacje internetowe, które nie są w pełni utrzymywane w infrastrukturze Amazon Web Services. Integracja mechanizmów WAF nie wymaga pełnej migracji do chmury publicznej.
+Na uwagę zasługuje fakt, że CloudFront jest często wykorzystywany przez aplikacje internetowe, które nie są w pełni utrzymywane w infrastrukturze Amazon Web Services. Integracja mechanizmów WAF nie wymaga pełnej migracji do publicznej chmury obliczeniowej.
 
 
 \subsubsection{Cloudflare Cloud Web Application Firewall}
@@ -632,10 +632,17 @@ Po implementacji systemu dokonano testów funkcjonalnych, których celem było s
 \section{Środowisko testowe}
 Testy zostały wykonane na komputerze z zainstalowanym systemem Debian GNU/Linux z jądrem w wersji 4.12. Do separacji środowisk wykorzystano narzędzie Docker \footnote{\url{https://www.docker.com}}, która pozwala na tworzenie kontenerów aplikacyjnych. Kontenery te zawierają swój własny system plików, biblioteki i narzędzia wymagane przez system operacyjny. Nad izolacją procesów czuwał mechanizm \textit{cgroups} wbudowany w jądro systemu operacyjnego.
 
-Jako serwer WWW wykorzystano \textit{nginx} \footnote{\url{https://nginx.org/en/}} w wersji 1.12. W przypadku testowania gotowego oprogramowania (takiego jak np.~Wordpress) wykorzystano zależności zdefiniowane przez opiekuna definicji kontenera Docker.
+Jako serwer WWW wykorzystano \textit{nginx} \footnote{\url{https://nginx.org/en/}} w wersji 1.12. W przypadku testowania gotowego oprogramowania (takiego jak np.~Wordpress) wykorzystano zależności zdefiniowane przez opiekuna definicji kontenera Docker. Jako system zarządzania bazą danych posłużył MySQL \footnote{\url{https://mysql.com}} w wersji 5.7.
 
-\textbf{TU JESZCZE BĘDZIE DO DOKOŃCZENIA...}
+
 \section{Przygotowane ataki}
+W celu sprawdzenia poprawności implementacji narzędzia i zaprojektowanego procesu, przygotowano definicje trzech ataków o różnym stopniu skomplikowania. 
+
+\subsection*{Atak 1 --- wstrzyknięcie kodu SQL}
+W tym celu przygotowano prostą aplikację w języku PHP, która przyjmuje nazwę użytkownika i hasło, a następnie weryfikuje skrót SHA1 z bazą danych MySQL. Jeżeli aplikacja zwróci kod $200$ to wprowadzone dane były poprawne, w przeciwnym razie zwrócony zostanie kod 403.
+
+W aplikacji celowo wprowadzono podatność, która umożliwiała zdalne wykonanie kodu SQL i modyfikację zapytania, które odpowiadało za uwierzytelnienie. Dane wprowadzane przez użytkownika nie były walidowane, a jedynie bezpośrednio wklejane w treść kodu.
+
 
 \section{Przebieg testów}
 
@@ -649,8 +656,17 @@ Usługi internetowe powinny mieć wdrożone procedury ciągłej ewaluacji bezpie
 
 Oprogramowanie typu \textit{Web Application Firewall} stanowi jedynie dodatkową zaporę, która chroni system przed atakiem. Może ono być częścią większego systemu wykrywania intruzów, a także monitorować ruch wychodzący. Taki dodatkowy element filtracji zapytań jest szczególnie ważny, gdy system składa się z elementów, w których nie mamy możliwości edytowania kodu źródłowego (brak odpowiednich zasobów ludzkich, niewolna licencja). Odpowiednia łatka może pojawić się znacznie szybciej niż oficjalna aktualizacja producenta, a do tego czasu nasz system pozostawałby narażony na zagrożenia. Dodatkowe reguły generyczne mogą chronić nas nawet przed nieopublikowanymi podatnościami, co stanowi dodatkową korzyść przemawiającą za wykorzystaniem takiego rozwiązania.
 
-Nieprawidłowe zrozumienie czym jest i jak działa WAF może prowadzić do złudnego poczucia bezpieczeństwa i np.~zlekceważenia podstawowych jej zasad. W każdym systemie najważniejszym elementem jest docelowa aplikacja i priorytetem powinno być dbanie o jakość kodu i zgodność ze standardami, a WAF czy IDS (Intrusion Detection System) powinny być wyłącznie dodatkami, których mechanizmy powinny zadziałać dopiero w ostateczności.
+Nieprawidłowe zrozumienie czym jest i jak działa WAF może prowadzić do złudnego poczucia bezpieczeństwa i np.~zlekceważenia podstawowych jej zasad. W każdym systemie najważniejszym elementem jest docelowa aplikacja i priorytetem powinno być dbanie o jakość kodu i zgodność ze standardami, a WAF czy IDS (Intrusion Detection System) powinny być wyłącznie dodatkami, których mechanizmy powinny zadziałać dopiero w ostateczności. Poleganie wyłącznie na wirtualnych łatkach i heurystycznych regułach blokowania nie jest wystarczającą ochroną przed atakami sieciowymi.
+
+Na szczególną uwagę zasługują rozwiązania chmurowe, które bardzo szybko zdobywają popularność wśród użytkowników Internetu. Rozwiązania WAF wbudowane w systemy CDN to bardzo wygodne i skuteczne narzędzia, które nie wymagają dodatkowych zasobów serwerowych, a utrzymanie jest powierzone dostawcy usługi. Elementem odstraszającym może być skomplikowany cennik, który często zależy od wielu czynników: liczby reguł, ruchu sieciowego czy liczby żądań. Korzyść wynikająca z inteligentnych reguł aplikowanych automatycznie przez dostawcę może być jednak większa niż koszt samej usługi.
+
+Rozwiązania dedykowane, wbudowane w urządzenia klasy Unified Threat Management, mają bardzo wąskie zastosowanie i wymagają ingerencji w infrastrukturę sprzętową usługi, co często jest niemożliwe. Dodatkowo bardzo wysokie ceny licencji sprawiają, że są to produkty przeznaczone dla dużych korporacji, które utrzymują często własne centra przetwarzania danych. Sprzęt klasy \textit{enterprise} połączony z profesjonalnym wsparciem technicznym i gwarancjami producenta może stanowić bardzo ważny element ochrony infrastruktury, w którym WAF jest tylko jednym z elementów składowych.
+
+Stworzone narzędzie może być szczególne przydatne administratorom zarządzającym wieloma serwisami internetowymi, które np.~działają w oparciu o ten sam system zarządzania treścią. Przeprowadzając taki test można w prosty sposób zweryfikować czy odpowiednia łatka została zaaplikowana na wszystkich serwerach. Odpowiednio szybko przygotowana definicja ataku wykorzystująca nowe podatności może również posłużyć do weryfikacji czy i które z serwerów wymagają aktualizacji w przypadku pojawienia się nowego zagrożenia. Dokonując ewaluacji konfiguracji WAF administrator zyskuje pewność, że odpowiednie zmiany zostały dokonane na wszystkich serwerach i nie musi dodatkowo weryfikować tego ręcznie.
  
+Przygotowana w ramach niniejszej pracy dyplomowej baza definicji ataków jest tylko demonstracyjna, w przyszłości należałoby ją konsekwentnie rozszerzać o nowe wpisy, które odzwierciedlałyby odnajdywane podatności w popularnych oprogramowaniach. Prawdopodobnie w przyszłości zaprojektowany język może okazać się niewystarczający do opisania niektórych konwersacji HTTP, ale dzięki wykorzystaniu YAML i prostego opisu żądań i odpowiedzi, jego rozszerzenie nie powinno stanowić żadnego problemu.
+
+Zaimplementowane narzędzie może zostać rozbudowane i dołączone do większego systemu, który samodzielnie mógłby dokonywać ciągłej ewaluacji nie tylko zapory aplikacyjnej, ale także standardowej zapory sieciowej czy konfiguracji systemu operacyjnego. Dopiero pełny obraz daje administratorowi kontrolę nad stanem bezpieczeństwa infrastruktury i pozwoli reagować na wszelkie anomalie w ruchu sieciowym, które mogą wydarzyć się podczas ataku.
 
 \appendix
 \chapter{Opis języka definicji ataków}
