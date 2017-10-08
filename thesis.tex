@@ -1,12 +1,14 @@
 %\documentclass[12pt,a4paper,polish,thesis,oneside]{dcsbook}
-\documentclass[11pt,a4paper,polish,thesis]{dcsbook}
+\documentclass[12pt,a4paper,polish,thesis]{dcsbook}
 \usepackage[utf8]{inputenc}
 
 \usepackage{babel}
 \usepackage{indentfirst}
 \usepackage{listings}
 \usepackage{graphicx}
-\usepackage{hyperref}
+\usepackage{url}
+\usepackage{breakurl}
+\usepackage[breaklinks]{hyperref}
 \usepackage{pdfpages}
 \usepackage{float}
 \usepackage{placeins}
@@ -19,7 +21,7 @@
 
 \makeatletter
 
-% here is a macro expanding to the name of the language
+% here is a~macro expanding to the name of the language
 % (handy if you decide to change it further down the road)
 \newcommand\language@yaml{yaml}
 
@@ -28,7 +30,7 @@
 {
   keywords={true,false,null,y,n},
   keywordstyle=\color{darkgray}\bfseries,
-  basicstyle=\YAMLkeystyle,                                 % assuming a key comes first
+  basicstyle=\YAMLkeystyle,                                 % assuming a~key comes first
   sensitive=false,
   comment=[l]{\#},
   morecomment=[s]{/*}{*/},
@@ -75,7 +77,7 @@
 
 \author{inż.~Jakub Woźniak}
 \title{Web Application Firewall}
-\secondtitle{\textsc{Projekt i implementacja narzędzia testującego bezpieczeństwo reguł ModSecurity}}
+\secondtitle{\textsc{Prototyp narzędzia testującego bezpieczeństwo reguł zapory warstwy aplikacyjnej}}
 \supervisor{dr inż.~Michał Szychowiak}
 \date{Poznań, 2017}
 \maketitle
@@ -87,38 +89,38 @@
 
 \chapter{Wstęp}
 
-Aplikacje internetowe (ang. \textit{web applications}) stopniowo wypierają ich okienkowe odpowiedniki. Przeglądarka internetowa stała się nieodłącznym elementem pracy przy komputerze. Popularność zyskują również systemy operacyjne, które opierają się wyłącznie o przeglądarkę i~przetwarzanie w chmurze. Wraz z upowszechnieniem się aplikacji internetowych, wzrosła również liczba ataków komputerowych, które mają na celu uzyskanie dostępu do prywatnych danych użytkowników lub zmuszenie ich do nieświadomego podjęcia jakiejś akcji. Baza danych \textit{Common Vulnerabilities and Exposures}\cite{cve} zawiera ponad 82 tysiące\footnote{stan na 17 marca 2017 r.} unikalnych, skatalogowanych podatności oprogramowania.
+Aplikacje internetowe (ang. \textit{web applications}) stopniowo wypierają ich okienkowe odpowiedniki. Przeglądarka internetowa stała się nieodłącznym elementem pracy przy komputerze. Popularność zyskują również systemy operacyjne, które opierają się wyłącznie o~przeglądarkę i~przetwarzanie w~chmurze. Wraz z~upowszechnieniem się aplikacji internetowych, wzrosła również liczba ataków komputerowych, które mają na celu uzyskanie dostępu do prywatnych danych użytkowników lub zmuszenie ich do nieświadomego podjęcia jakiejś akcji. Baza danych \textit{Common Vulnerabilities and Exposures}\cite{cve} zawiera ponad 82 tysiące\footnote{stan na 17 marca 2017 r.} unikalnych, skatalogowanych podatności oprogramowania.
 
-Dostępność otwartego i~rozbudowanego oprogramowania takiego jak Wordpress\footnote{\url{https://wordpress.org}} czy Joomla\footnote{\url{https://www.joomla.org/}} połączona z dynamicznym rozwojem i~aktywnością społeczności programistów o różnym doświadczeniu stanowi poważny problem dla bezpieczeństwa tych aplikacji i~danych osób z nich korzystających. Wiele z odkrytych podatności znajduje się w~nieoficjalnych wtyczkach napisanych przez wolontariuszy i~udostępnionych na otwartych licencjach. Osoby zarządzające serwisami opartymi o ww. systemy często nie są świadome tych zagrożeń i~nie aktualizują oprogramowania na swoich serwerach. 
+Dostępność otwartego i~rozbudowanego oprogramowania takiego jak Wordpress\footnote{\url{https://wordpress.org}} czy Joomla\footnote{\url{https://www.joomla.org/}} połączona z~dynamicznym rozwojem i~aktywnością społeczności programistów o~różnym doświadczeniu stanowi poważny problem dla bezpieczeństwa tych aplikacji i~danych osób z~nich korzystających. Wiele z~odkrytych podatności znajduje się w~nieoficjalnych wtyczkach napisanych przez wolontariuszy i~udostępnionych na otwartych licencjach. Osoby zarządzające serwisami opartymi o~ww. systemy często nie są świadome tych zagrożeń i~nie aktualizują oprogramowania na swoich serwerach. 
 
-Dla samego systemu Wordpress w CVE skatalogowano ponad 290 podatności (statystyka nie dotyczy wtyczek), a~ostatnia z~nich opublikowana 11 marca 2017 roku dotyczy ataku typu CSRF\footnote{stan na 17 marca 2017 r.}, który pozwala na nadmierne wykorzystanie zasobów serwera (procesor, pamięć operacyjna), co w ostateczności może doprowadzić do ataku typu Denial of Service i~spowodowania niedostępności serwisu.
+Dla samego systemu Wordpress w~CVE skatalogowano ponad 290 podatności (statystyka nie dotyczy wtyczek), a~ostatnia z~nich opublikowana 11 marca 2017 roku dotyczy ataku typu CSRF\footnote{stan na 17 marca 2017 r.}, który pozwala na nadmierne wykorzystanie zasobów serwera (procesor, pamięć operacyjna), co w~ostateczności może doprowadzić do ataku typu Denial of Service i~spowodowania niedostępności serwisu.
 
-Również zamknięte i~komercyjne oprogramowanie nie jest wolne od błędów. Invision Power Board\footnote{\url{https://invisionpower.com/}} to komercyjny system pozwalający na prowadzenie forum dyskusyjnego. W bazie CVE znajduje się 11 odkrytych podatności\footnote{stan na 17 marca 2017 r.}, ostatnia jest z 12 lipca 2016 roku i~dotyczy możliwości zdalnego wykonania kodu na serwerze.
+Również zamknięte i~komercyjne oprogramowanie nie jest wolne od błędów. Invision Power Board\footnote{\url{https://invisionpower.com/}} to komercyjny system pozwalający na prowadzenie forum dyskusyjnego. W~bazie CVE znajduje się 11 odkrytych podatności\footnote{stan na 17 marca 2017 r.}, ostatnia jest z~12 lipca 2016 roku i~dotyczy możliwości zdalnego wykonania kodu na serwerze.
 
-W styczniu 2017 roku w CVE skatalogowano 1085 podatności, znaczna część z nich dotyczyła bezpieczeństwa aplikacji internetowych. Były to m.in.\ ataki typu: XSS, SQL Injection, CSRF i zdalnego wykonania kodu. W przypadku otwartego oprogramowania społeczność zazwyczaj dość szybko reaguje na pojawiające się zagrożenia, dostarczając aktualizacje bezpieczeństwa, które należy pobrać i~zainstalować na własnym serwerze. Zamknięte oprogramowanie wymaga reakcji producenta, co może wiązać się z długim czasem oczekiwania czy nawet negacją zagrożenia ze strony dostawcy.
+ W~styczniu 2017 roku w~CVE skatalogowano 1085 podatności, znaczna część z~nich dotyczyła bezpieczeństwa aplikacji internetowych. Były to m.in.\ ataki typu: XSS, SQL Injection, CSRF i~zdalnego wykonania kodu. W~przypadku otwartego oprogramowania społeczność zazwyczaj dość szybko reaguje na pojawiające się zagrożenia, dostarczając aktualizacje bezpieczeństwa, które należy pobrać i~zainstalować na własnym serwerze. Zamknięte oprogramowanie wymaga reakcji producenta, co może wiązać się z~długim czasem oczekiwania czy nawet negacją zagrożenia ze strony dostawcy.
 
-Niestety nawet natychmiastowe wydanie aktualizacji przez producenta nie gwarantuje nam bezpieczeństwa. Aplikacje takie jak Wordpress czy Invision Power Board są utrzymywane i~zarządzane przez właściciela serwisu (np.\ przez nas samych). O podatności odkrytej w nocy możemy dowiedzieć się dopiero następnego dnia lub całkowicie przeoczyć taką informację. Crackerzy mogą również spróbować zaatakować naszą stronę przy pomocy całkowicie nowego sposobu (zanim zostanie on upubliczniony, tzw. \textit{zero-day exploit}).
+Niestety nawet natychmiastowe wydanie aktualizacji przez producenta nie gwarantuje nam bezpieczeństwa. Aplikacje takie jak Wordpress czy Invision Power Board są utrzymywane i~zarządzane przez właściciela serwisu (np.\ przez nas samych). O~podatności odkrytej w~nocy możemy dowiedzieć się dopiero następnego dnia lub całkowicie przeoczyć taką informację. Crackerzy mogą również spróbować zaatakować naszą stronę przy pomocy całkowicie nowego sposobu (zanim zostanie on upubliczniony, tzw. \textit{zero-day exploit}).
 
-Powstała potrzeba posiadania zabezpieczenia podobnego do oprogramowania antywirusowego, które potrafi rozpoznawać zagrożenia bazując na znanych sygnaturach i~dodatkowo przeciwdziałać nieznanym atakom przy pomocy heurystyk. Takim odpowiednikiem jest Web Application Firewall, który występuje zarówno jako oprogramowanie pośredniczące instalowane na standardowych systemach operacyjnych, jak i~rozwiązania sprzętowe (np. wbudowane w urządzenia klasy UTM\footnote{Unified Threat Management}). WAF dokonuje analizy ruchu na 7.~warstwie modelu OSI i~zależnie od wyniku algorytmu oceniającego zagrożenie --- blokuje lub dopuszcza ruch z/do serwera WWW.  
+Powstała potrzeba posiadania zabezpieczenia podobnego do oprogramowania antywirusowego, które potrafi rozpoznawać zagrożenia bazując na znanych sygnaturach i~dodatkowo przeciwdziałać nieznanym atakom przy pomocy heurystyk. Takim odpowiednikiem jest Web Application Firewall, który występuje zarówno jako oprogramowanie pośredniczące instalowane na standardowych systemach operacyjnych, jak i~rozwiązania sprzętowe (np. wbudowane w~urządzenia klasy UTM\footnote{Unified Threat Management}). WAF dokonuje analizy ruchu na 7.~warstwie modelu OSI i~zależnie od wyniku algorytmu oceniającego zagrożenie --- blokuje lub dopuszcza ruch z/do serwera WWW.  
 
-\section*{Cel i zakres pracy}
-Celem niniejszej pracy magisterskiej jest stworzenie narzędzia pozwalającego na automatyczne testowanie konfiguracji Web Application Firewall. Test ma polegać na przygotowaniu zestawu wektorów ataku, przeprowadzenie tego ataku na testowany WAF, a~następnie ocenę czy ruch sieciowy został poprawnie zablokowany. W celu przygotowania pracy magisterskiej należało dokonać analizy bieżących zagrożeń dotyczących aplikacji internetowych i~zapoznanie się z istniejącymi rozwiązaniami klasy WAF (w szczególności ModSecurity\footnote{\url{https://modsecurity.org/}}). Następnie wykonano prototypową realizację narzędzia testującego i~przeprowadzono testy konfiguracji na przygotowanym środowisku. Na podstawie wyników testów podjęto próbę przygotowania zestawu reguł, które pozwoliłyby na zablokowanie zagrożeń, które nie zostały wykryte przez WAF.
+\section*{Cel i~zakres pracy}
+Celem niniejszej pracy magisterskiej jest stworzenie narzędzia pozwalającego na automatyczne testowanie konfiguracji Web Application Firewall. Test ma polegać na przygotowaniu zestawu wektorów ataku, przeprowadzeniu tego ataku na testowany WAF, a~następnie ocenie czy ruch sieciowy został poprawnie zablokowany. W~celu przygotowania pracy magisterskiej należało dokonać analizy bieżących zagrożeń dotyczących aplikacji internetowych i~zapoznać się z~istniejącymi rozwiązaniami klasy WAF (w szczególności ModSecurity\footnote{\url{https://modsecurity.org/}}). Następnie wykonano prototypową realizację narzędzia testującego i~przeprowadzono testy konfiguracji na przygotowanym środowisku. Na podstawie wyników testów podjęto próbę przygotowania zestawu reguł, które pozwoliłyby na zablokowanie zagrożeń, które nie zostały wykryte przez WAF.
 
-Struktura pracy jest następująca. W rozdziale 2 zamieszczono wprowadzenie teoretyczne, które zawiera listę najpopularniejszych zagrożeń aplikacji internetowych, a także opisano metody ochrony przed atakami (w tym mechanizmy wbudowane w przeglądarki oraz zewnętrzne urządzenia i aplikacje). Rozdział 3 jest poświęcony projektowi narzędzia do przeprowadzania aktywnych testów bezpieczeństwa aplikacji chronionych przez Web Application Firewall. Zawiera opis architektury programu, definicję języka opisującego wektory ataków i szczegóły implementacji. Rozdział 5 to opis testów funkcjonalnych zaimplementowanego narzędzia. Rozdział 6 stanowi podsumowanie pracy.
+Struktura pracy jest następująca. W~rozdziale 2 zamieszczono wprowadzenie teoretyczne, które zawiera listę najpopularniejszych zagrożeń aplikacji internetowych, a~także opisano metody ochrony przed atakami (w tym mechanizmy wbudowane w~przeglądarki oraz zewnętrzne urządzenia i~aplikacje). Rozdział 3 jest poświęcony projektowi narzędzia do przeprowadzania aktywnych testów bezpieczeństwa aplikacji chronionych przez Web Application Firewall. Zawiera opis architektury programu, definicję języka opisującego wektory ataków i~szczegóły implementacji. Rozdział 5 to opis testów funkcjonalnych zaimplementowanego narzędzia. Rozdział 6 stanowi podsumowanie pracy.
 
 
-\chapter{Wprowadzenie teoretyczne}
-Realizacja pracy wymagała zapoznania się z technologiami wykorzystywanymi przy tworzeniu aplikacji internetowych i potencjalnymi zagrożeniami bezpieczeństwa, na które są te aplikacje narażone.
+\chapter{Wprowadzenie}
+Realizacja pracy wymagała zapoznania się z~technologiami wykorzystywanymi przy tworzeniu aplikacji internetowych i~potencjalnymi zagrożeniami bezpieczeństwa, na które są te aplikacje narażone.
 \section{Zagrożenia aplikacji internetowych}
 % OWASP TOP 10
-Współczesne aplikacje internetowe są wielowarstwowe i wykorzystują różne technologie, m.in.~kod wykonywany po stronie klienta (JavaScript), kod wykonywany po stronie serwera (np.~PHP, Python, Ruby), bazy danych, itp.. Każda z tych technologii jest narażona na obecność podatności, które mogą być wykorzystane przez crackerów do wykradzenia informacji poufnych.
+Współczesne aplikacje internetowe są wielowarstwowe i~wykorzystują różne technologie, m.in.~kod wykonywany po stronie klienta (JavaScript), kod wykonywany po stronie serwera (np.~PHP, Python, Ruby), bazy danych, itp.. Każda z~tych technologii jest narażona na obecność podatności, które mogą być wykorzystane przez crackerów do wykradzenia informacji poufnych.
 
-Internetowa społeczność \textbf{Open Web Application Security Project (OWASP)}\footnote{\url{ https://www.owasp.org/}} zajmuje się tworzeniem artykułów, dokumentacji i narzędzi związanych z bezpieczeństwem sieci komputerowych. Jeden z ich największych projektów to \textbf{OWASP Top Ten}, którego celem jest podniesienie świadomości użytkowników na temat bezpieczeństwa aplikacji przez publikowane listy 10 najważniejszych zagrożeń. Poniżej zaprezentowano listę zagrożeń aplikacji internetowych wg \textbf{OWASP Top Ten 2017 Project}.
+Internetowa społeczność \textbf{Open Web Application Security Project (OWASP)}\footnote{\url{ https://www.owasp.org/}} zajmuje się tworzeniem artykułów, dokumentacji i~narzędzi związanych z~bezpieczeństwem sieci komputerowych. Jeden z~ich największych projektów to \textbf{OWASP Top Ten}, którego celem jest podniesienie świadomości użytkowników na temat bezpieczeństwa aplikacji przez publikowane listy 10 najważniejszych zagrożeń. Poniżej zaprezentowano listę zagrożeń aplikacji internetowych wg \textbf{OWASP Top Ten 2017 Project}.
 
 \subsection{Iniekcja kodu}
-Iniekcja kodu to wykorzystanie błędu, który pozwala na przekazanie do wykonania niezaufanych danych wprowadzonych z zewnątrz. Potencjalnie narażona jest na to każda aplikacja w której użytkownik może wprowadzić dane. Atak polega na wprowadzeniu tekstu, który wykorzystuje składnię atakowanego interpretera, stąd jest on prosty do wykonania i bardzo skuteczny. Szczególnie narażone są następujące technologie: SQL, LDAP, XPath, NoSQL, polecenia systemu operacyjnego, parsery XML. itp.. Iniekcja może spowodować wyciek informacji, utratę danych (lub ich uszkodzenie), a w skrajnych przypadkach nawet całkowite przejęcie kontroli nad systemem.
+Iniekcja kodu to wykorzystanie błędu, który pozwala na przekazanie do wykonania niezaufanych danych wprowadzonych z~zewnątrz. Potencjalnie narażona jest na to każda aplikacja w~której użytkownik może wprowadzić dane. Atak polega na wprowadzeniu tekstu, który wykorzystuje składnię atakowanego interpretera, stąd jest on prosty do wykonania i~bardzo skuteczny. Szczególnie narażone są następujące technologie: SQL, LDAP, XPath, NoSQL, polecenia systemu operacyjnego, parsery XML. itp.. Iniekcja może spowodować wyciek informacji, utratę danych (lub ich uszkodzenie), a~w skrajnych przypadkach nawet całkowite przejęcie kontroli nad systemem.
 
-Ochrona przed tym atakiem jest dość prosta, znaczna część bibliotek (np. do komunikacji z bazami danych) udostępnia mechanizmy pozwalające na separację wprowadzonych danych od składni interpretera (wiązanie zmiennych).
+Ochrona przed tym atakiem jest dość prosta, znaczna część bibliotek (np. do komunikacji z~bazami danych) udostępnia mechanizmy pozwalające na separację wprowadzonych danych od składni interpretera (wiązanie zmiennych).
 
 \subsubsection*{Przykład}
 \begin{lstlisting}[language=php,frame=single,caption=kod podatny na iniekcję,label=injectionphp,numbers=left]
@@ -130,15 +132,15 @@ $result = pg_query($conn, $query);
 
 ?>
 \end{lstlisting}
-Zaprezentowany kod \ref{injectionphp} przyjmuje wartość parametru \textit{id} przekazaną przy pomocy URI przez użytkownika, a następnie zapisuje ją do zmiennej. Zmienna ta jest wykorzystana w zapytaniu SQL (linia 4). Brak weryfikacji zawartości tej zmiennej spowoduje wstawienie do zapytania dowolnego kodu przekazanego w parametrze. Jeżeli do zmiennej zostanie wprowadzona wartość \lstinline[frame=single]|4; DROP TABLE products; --|, to ostatecznie wykonane zapytanie będzie wyglądało następująco: 
+Zaprezentowany kod \ref{injectionphp} przyjmuje wartość parametru \textit{id} przekazaną przy pomocy URI przez użytkownika, a~następnie zapisuje ją do zmiennej. Zmienna ta jest wykorzystana w~zapytaniu SQL (linia 4). Brak weryfikacji zawartości tej zmiennej spowoduje wstawienie do zapytania dowolnego kodu przekazanego w~parametrze. Jeżeli do zmiennej zostanie wprowadzona wartość \lstinline[frame=single]|4; DROP TABLE products; --|, to ostatecznie wykonane zapytanie będzie wyglądało następująco: 
 \begin{lstlisting}
 SELECT id, name, price FROM products WHERE id = 4; DROP TABLE products; --
 \end{lstlisting}
-Powyższe wykonanie spowoduje usunięcie z bazy danych relacji o nazwie \textit{products}.
+Powyższe wykonanie spowoduje usunięcie z~bazy danych relacji o~nazwie \textit{products}.
 
-Podatność na iniekcję kodu SQL wykryto np. w popularnym systemie zarządzania treścią JPortal (CVE-2007-5973). Pozwalała ona na wykonanie dowolnego kodu SQL przez parametr \textit{topic} w skrypcie \textit{articles.php}
+Podatność na iniekcję kodu SQL wykryto np. w~popularnym systemie zarządzania treścią JPortal (CVE-2007-5973). Pozwalała ona na wykonanie dowolnego kodu SQL przez parametr \textit{topic} w~skrypcie \textit{articles.php}
 
-\begin{lstlisting}[language=php,frame=single,caption=podatność articles.php w systemie JPortal,label=injectionjportal,numbers=left]
+\begin{lstlisting}[language=php,frame=single,caption=podatność articles.php w~systemie JPortal,label=injectionjportal,numbers=left]
 <?php
 
 function topic_name($a)  
@@ -153,40 +155,40 @@ return '<a href="articles.php?topic='.$a.'" class="t_main">'.$r['title'].'</a>';
 ?>
 \end{lstlisting}
 
-Przekazanie do parametru wartości \lstinline|-1+UNION+SELECT+1,pass,3,4,5+FROM+admins/| pozwalało na otrzymanie nazwy użytkownika i skrótu hasła (MD5 bez soli) kont z uprawnieniami administratora.
+Przekazanie do parametru wartości \lstinline|-1+UNION+SELECT+1,pass,3,4,5+FROM+admins/| pozwalało na otrzymanie nazwy użytkownika i~skrótu hasła (MD5 bez ziarna) kont z~uprawnieniami administratora.
 
 \begin{figure}[h]
 \centering
 \includegraphics[scale=0.4]{szpital}
 
-\caption{strona SPZOZ w Kole, potencjalnie podatna na atak SQL Injection}
+\caption{strona SPZOZ w~Kole, potencjalnie podatna na atak SQL Injection}
 \label{fig:szpital}
 \end{figure}
 
-Na rysunku \ref{fig:szpital} pokazano stronę internetową Samodzielnego Publicznego Zakładu Opieki Zdrowotnej w Kole, która potencjalnie jest podatna na atak SQL Injection\footnote{stan na 12 czerwca 2017 r.}. Wartość parametru \textbf{id} w URI jest umieszczona bezpośrednio w zapytaniu SQL, a błąd wygenerowany przez system zarządzania bazą danych został wyświetlony bezpośrednio w formularzu (brak obsługi błędu po stronie aplikacji).
+Na rysunku \ref{fig:szpital} pokazano stronę internetową Samodzielnego Publicznego Zakładu Opieki Zdrowotnej w~Kole, która potencjalnie jest podatna na atak SQL Injection\footnote{stan na 12 czerwca 2017 r.}. Wartość parametru \textbf{id} w~URI jest umieszczona bezpośrednio w~zapytaniu SQL, a~błąd wygenerowany przez system zarządzania bazą danych został wyświetlony bezpośrednio w~formularzu (brak obsługi błędu po stronie aplikacji).
 
-\subsection{Błędy uwierzytelnienia i zarządzania sesją}
-Kolejnym popularnym zagrożeniem są błędy związane z uwierzytelnieniem użytkowników i zarządzaniem sesją. Dane związane z sesją (nazwa użytkownika, hasło, identyfikator sesji) są często przechowywane w sposób narażający na ujawnienie informacji --- brak funkcji skrótu lub szyfrowania, przesyłanie danych w formie czystego tekstu. Szczególnie ważny jest tutaj mechanizm, który rozpoznaje uprawnienia użytkownika podczas kolejnych, niezależnych żądań HTTP. Często wiele z tych danych jest przechowywanych w postaci ciasteczka \textit{(ang. cookie} po stronie przeglądarki, jego przechwycenie lub modyfikacja może spowodować przejęcie konta ofiary lub eskalację uprawnień.
+\subsection{Błędy uwierzytelnienia i~zarządzania sesją}
+Kolejnym popularnym zagrożeniem są błędy związane z~uwierzytelnieniem użytkowników i~zarządzaniem sesją. Dane związane z~sesją (nazwa użytkownika, hasło, identyfikator sesji) są często przechowywane w~sposób narażający na ujawnienie informacji --- brak funkcji skrótu lub szyfrowania, przesyłanie danych w~formie czystego tekstu. Szczególnie ważny jest tutaj mechanizm, który rozpoznaje uprawnienia użytkownika podczas kolejnych, niezależnych żądań HTTP. Często wiele z~tych danych jest przechowywanych w~postaci ciasteczka \textit{(ang. cookie}) po stronie przeglądarki, jego przechwycenie lub modyfikacja może spowodować przejęcie konta ofiary lub eskalację uprawnień.
 
-W nowszych systemach, użytkownik w ciasteczku otrzymuje wyłącznie informacje o identyfikatorze sesji, a dane z nią związane przechowywane są po stronie serwera. Takie rozwiązanie jest również podatne na atak fiksacji sesji. Jeżeli weryfikowany jest tylko identyfikator sesji, to przechwycenie tego identyfikatora powoduje przejęcie sesji. Potencjalnie zagrożone są aplikacje:
+ W~nowszych systemach, użytkownik w~ciasteczku otrzymuje wyłącznie informacje o~identyfikatorze sesji, a~dane z~nią związane przechowywane są po stronie serwera. Takie rozwiązanie jest również podatne na atak fiksacji sesji. Jeżeli weryfikowany jest tylko identyfikator sesji, to przechwycenie tego identyfikatora powoduje przejęcie sesji. Potencjalnie zagrożone są aplikacje:
 \begin{itemize}
-\item przechowują identyfikator sesji w adresie URI,
+\item przechowują identyfikator sesji w~adresie URI,
 \item nie regenerują identyfikatora przy logowaniu,
-\item nie korzystają z mechanizmu wygasania sesji po określonym czasie,
+\item nie korzystają z~mechanizmu wygasania sesji po określonym czasie,
 \item nie weryfikują innych danych żądania poza identyfikatorem (np. adresu IP czy sygnatury przeglądarki),
 \item przesyłają informacje nieszyfrowanym kanałem.
 \end{itemize}
 
 \subsubsection*{Przykład}
-Załóżmy istnienie sklepu internetowego, który przechowuje identyfikator sesji w URI. Zalogowany użytkownik \textit{A} przegląda stronę i chce pokazać ofertę innej osobie, więc kopiuje z przeglądarki adres strony o następującej postaci:
+Załóżmy istnienie sklepu internetowego, który przechowuje identyfikator sesji w~URI. Zalogowany użytkownik \textit{A} przegląda stronę i~chce pokazać ofertę innej osobie, więc kopiuje z~przeglądarki adres strony o~następującej postaci:
 \begin{lstlisting}
 http://example.com/sklep/oferta.php?sessid=5aef77ef7aa
 \end{lstlisting}
-Użytkownik \textit{B} po wejściu na otrzymany adres będzie zalogowany z uprawnieniami użytkownika \textit{A} i otrzyma dostęp do wszystkich informacji o tym użytkowniku, które są przechowywane w systemie.
+Użytkownik \textit{B} po wejściu na otrzymany adres będzie zalogowany z~uprawnieniami użytkownika \textit{A} i~otrzyma dostęp do wszystkich informacji o~tym użytkowniku, które są przechowywane w~systemie.
 
-Innym, bardziej prawdopodobnym atakiem jest przekazanie ofierze adresu z spreparowanym identyfikatorem sesji. Jeżeli aplikacja nie regeneruje identyfikatora po zalogowaniu, to atakujący będzie mógł przejąć sesję, jeśli ofiara zaloguje się przy pomocy przekazanego adresu. Na taki atak był podatny system CMS Symphony2 (CVE-2016-4309). Przy błędnie skonfigurowanym interpreterze języka PHP (brak wymuszenia przechowywania identyfikatora sesji w ciasteczku) atakujący mógł wymusić konkretny identyfikator sesji przy pomocy parametru \textit{PHPSESSID} przekazanego w URI. Stosowna poprawka pojawiła się w repozytorium projektu i usunęła wskazaną podatność (przykład \ref{symphonydiff}).
+Innym, bardziej prawdopodobnym atakiem jest przekazanie ofierze adresu z~spreparowanym identyfikatorem sesji. Jeżeli aplikacja nie regeneruje identyfikatora po zalogowaniu, to atakujący będzie mógł przejąć sesję, jeśli ofiara zaloguje się przy pomocy przekazanego adresu. Na taki atak był podatny system CMS Symphony2 (CVE-2016-4309). Przy błędnie skonfigurowanym interpreterze języka PHP (brak wymuszenia przechowywania identyfikatora sesji w~ciasteczku) atakujący mógł wymusić konkretny identyfikator sesji przy pomocy parametru \textit{PHPSESSID} przekazanego w~URI. Stosowna poprawka pojawiła się w~repozytorium projektu i~usunęła wskazaną podatność (przykład \ref{symphonydiff}).
 
-\begin{lstlisting}[language=diff,frame=single,caption=łatka naprawiająca podatność fiksacji sesji w Symphony2 \cite{symphony},label=symphonydiff,numbers=left]
+\begin{lstlisting}[language=diff,frame=single,caption=łatka naprawiająca podatność fiksacji sesji w~Symphony2 \cite{symphony},label=symphonydiff,numbers=left]
 diff --git a/symphony/lib/core/class.session.php b/symphony/lib/core/class.session.php
 index c0075a1..dedb526 100644
 --- a/symphony/lib/core/class.session.php
@@ -204,17 +206,17 @@ index c0075a1..dedb526 100644
 \end{lstlisting}
 
 \subsection{Cross-site scripting (XSS)}
-\textit{Cross-Site Scripting} (XSS) to sposób ataku na aplikację internetową, który polega na możliwości osadzenia kodu JavaScript w treści strony internetowej w taki sposób, by był on wykonany po stronie przeglądarki ofiary ataku. Atak ten jest możliwy jeżeli aplikacja zmienia zawartość strony internetowej na podstawie danych wprowadzonych z zewnątrz (np. parametry GET/POST) bez uprzedniej zamiany znaków specjalnych HTML na encje. 
+\textit{Cross-Site Scripting} (XSS) to sposób ataku na aplikację internetową, który polega na możliwości osadzenia kodu JavaScript w~treści strony internetowej w~taki sposób, by był on wykonany po stronie przeglądarki ofiary ataku. Atak ten jest możliwy jeżeli aplikacja zmienia zawartość strony internetowej na podstawie danych wprowadzonych z~zewnątrz (np. parametry GET/POST) bez uprzedniej zamiany znaków specjalnych HTML na encje. 
 
 Wyróżnia się dwa rodzaje ataku XSS:
 \begin{itemize}
-\item persistent XSS --- kiedy kod zostaje zapamiętany przez aplikację internetową i jest wyświetlony każdemu odwiedzającemu,
-\item non-persistent XSS --- kiedy kod jest dostępny tylko w odpowiedzi na konkretne żądanie HTTP.
+\item persistent XSS --- kiedy kod zostaje zapamiętany przez aplikację internetową i~jest wyświetlony każdemu odwiedzającemu,
+\item non-persistent XSS --- kiedy kod jest dostępny tylko w~odpowiedzi na konkretne żądanie HTTP.
 \end{itemize}
 
 Wykonanie dowolnego kodu JavaScript po stronie przeglądarki ofiary może mieć następujące skutki:
 \begin{itemize}
-\item przejęcie sesji użytkownika lub innych danych przechowywanych w ciasteczkach,
+\item przejęcie sesji użytkownika lub innych danych przechowywanych w~ciasteczkach,
 \item podmiana zawartości strony internetowej (np. numerów kont bankowych do przelewu),
 \item przekierowanie użytkownika na inną stronę,
 \item pobranie złośliwego oprogramowania,
@@ -222,7 +224,7 @@ Wykonanie dowolnego kodu JavaScript po stronie przeglądarki ofiary może mieć 
 \end{itemize}
 
 \subsubsection*{Przykład}
-Przykład \ref{xss1} zawiera kod strony podatnej na atak XSS. W ciasteczku przechowywana jest wartość \textit{secret=password}. Następnie na stronie wyświetla się napis \textit{Hello <var>}, gdzie \textit{var} to parametr przekazany w URL.
+Przykład \ref{xss1} zawiera kod strony podatnej na atak XSS. W~ciasteczku przechowywana jest wartość \textit{secret=password}. Następnie na stronie wyświetla się napis \textit{Hello <var>}, gdzie \textit{var} to parametr przekazany w~URL.
 
 \begin{lstlisting}[language=php,frame=single,caption=przykładowy kod strony podatnej na XSS,label=xss1,numbers=left]
 <?php
@@ -233,7 +235,7 @@ echo "<h1>Hello ".$_GET["name"]."</h1>";
 ?>
 \end{lstlisting}
 
-Przekazanie kodu \ref {xss2} w postaci parametru \textit{name} spowoduje wykonanie tego kodu po stronie przeglądarki. Efektem wywołania będzie przekierowanie użytkownika na adres internetowy z przekazaną zawartością ciasteczka w adresie URL.
+Przekazanie kodu \ref {xss2} w~postaci parametru \textit{name} spowoduje wykonanie tego kodu po stronie przeglądarki. Efektem wywołania będzie przekierowanie użytkownika na adres internetowy z~przekazaną zawartością ciasteczka w~adresie URL.
 
 \begin{lstlisting}[language=php,frame=single,caption=przykład wykorzystania podatności XSS,label=xss2,numbers=left]
 <script>document.location="http://example.com/?c="+document.cookie;</script>
@@ -241,22 +243,22 @@ Przekazanie kodu \ref {xss2} w postaci parametru \textit{name} spowoduje wykonan
 %3Cscript%3Edocument.location%3D%22http%3A%2F%2Fexample.com%2F%3Fc%3D%22%2Bdocument.cookie%3B%3C%2Fscript%3E (wersja zakodowana)
 \end{lstlisting}
 
-W 2014 roku odkryto podatność aplikacji TweetDeck \cite{tweetdeck} (działającej jako rozszerzenie do przeglądarki Google Chrome), która oferowała interakcję z popularnym serwisem społecznościowym Twitter. Podatność polegała na renderowaniu treści tweeta z wykorzystaniem silnika interpretującego JavaScript i bez zamiany danych pobranych z API na encje.
+ W~2014 roku odkryto podatność aplikacji TweetDeck \cite{tweetdeck} (działającej jako rozszerzenie do przeglądarki Google Chrome), która oferowała interakcję z~popularnym serwisem społecznościowym Twitter. Podatność polegała na renderowaniu treści tweeta z~wykorzystaniem silnika interpretującego JavaScript i~bez zamiany danych pobranych z~API na encje.
 
 \begin{figure}[h]
 \centering
 \includegraphics[scale=0.75]{tweetdeck}
 \label{tweetdeckpng}
-\caption{tweet wykorzystujący podatność XSS w TweetDeck}
+\caption{tweet wykorzystujący podatność XSS w~TweetDeck}
 \end{figure}
 
-Użytkownik \textit{@derGeruhn} zamieścił na swoim profilu wpis, który wykorzystywał odnalezioną podatność. Wyświetlony w aplikacji TweetDeck zawierał tylko emotikonę serca, a poprzedzający ją kod został wykonany z uprawnieniami ofiary. Zamieszczony kod powodował rozpowszechnienie wpisu przez skopiowanie go na profil ofiary (\textit{ang. retweet}). Próba usunięcia wpisu kończyła się pojawieniem się komunikatu ,,XSS in Tweetdeck''.
+Użytkownik \textit{@derGeruhn} zamieścił na swoim profilu wpis, który wykorzystywał odnalezioną podatność. Wyświetlony w~aplikacji TweetDeck zawierał tylko emotikonę serca, a~poprzedzający ją kod został wykonany z~uprawnieniami ofiary. Zamieszczony kod powodował rozpowszechnienie wpisu przez skopiowanie go na profil ofiary (\textit{ang. retweet}). Próba usunięcia wpisu kończyła się pojawieniem się komunikatu ,,XSS in Tweetdeck''.
 
 \subsection{Błędna kontrola dostępu do obiektu}
-Ataki wykorzystujące błędną kontrolę dostępu do obiektu polegają na podmianie parametrów autoryzujących lub bezpośrednie wywołanie niepublicznych funkcji, do których dostęp nie jest odpowiednio weryfikowany. Jest to szczególnie ważne przy projektowaniu publicznych API, gdzie URL często zawiera nazwy obiektów. Przez modyfikowanie tej nazwy można odwołać się do obiektu, do którego nie mamy dostępu. Jest to podatność prosta do wykrycia, niestety jej obecność może umożliwić ujawnienie poufnych danych zgromadzonych w systemie.
+Ataki wykorzystujące błędną kontrolę dostępu do obiektu polegają na podmianie parametrów autoryzujących lub bezpośrednie wywołanie niepublicznych funkcji, do których dostęp nie jest odpowiednio weryfikowany. Jest to szczególnie ważne przy projektowaniu publicznych API, gdzie URL często zawiera nazwy obiektów. Przez modyfikowanie tej nazwy można odwołać się do obiektu, do którego nie mamy dostępu. Jest to podatność prosta do wykrycia, niestety jej obecność może umożliwić ujawnienie poufnych danych zgromadzonych w~systemie.
 
 \subsubsection*{Przykład}
-Kod (przykład \ref{da01}) odpowiada za pobranie wiadomości prywatnych użytkownika. Załóżmy, że funkcja \textit{LookupMessageObject} weryfikuje czy dane są numeryczne, a wiadomości są składowane w jednym miejscu (niezależnie od użytkownika), identyfikowane wyłącznie wg identyfikatora tej wiadomości. Kod aplikacji prawidłowo sprawdza czy użytkownik jest zalogowany. Wywołanie funkcji \textit{DisplayPrivateMessage} nie weryfikuje uprawnień zalogowanego użytkownika do żądanej wiadomości. Każdy zalogowany użytkownik może modyfikując parametr \textit{id} próbować pobrać dowolną wiadomość (zakładając sekwencyjne przydzielanie identyfikatora jest to bardzo proste) z pozytywnym skutkiem.
+Kod (przykład \ref{da01}) odpowiada za pobranie wiadomości prywatnych użytkownika. Załóżmy, że funkcja \textit{LookupMessageObject} weryfikuje czy dane są numeryczne, a~wiadomości są składowane w~jednym miejscu (niezależnie od użytkownika), identyfikowane wyłącznie wg identyfikatora tej wiadomości. Kod aplikacji prawidłowo sprawdza czy użytkownik jest zalogowany. Wywołanie funkcji \textit{DisplayPrivateMessage} nie weryfikuje uprawnień zalogowanego użytkownika do żądanej wiadomości. Każdy zalogowany użytkownik może modyfikując parametr \textit{id} próbować pobrać dowolną wiadomość (zakładając sekwencyjne przydzielanie identyfikatora jest to bardzo proste) z~pozytywnym skutkiem.
 
 \begin{lstlisting}[language=perl,frame=single,caption=przykładowy kod podatny na bezpośrednie odwołanie \cite{directaccess},label=da01,numbers=left]
 sub DisplayPrivateMessage {
@@ -279,9 +281,10 @@ my $id = $q->param('id');
 DisplayPrivateMessage($id);
 \end{lstlisting}
 
-W 2015 roku odkryto wiele podatności w rozszerzeniu dla systemu Wordpress --- TheCartPress (CVE-2015-3300) \cite{thecartpress}. Jedna z nich polegała na błędnej kontroli dostępu do obiektu. Atakujący mógł otworzyć następujący URL [\ref{thecartpress1}], a następnie przejść na adres [\ref{thecartpress2}], który zawiera pełne informacje dotyczące zamówienia w sklepie internetowym. Identyfikator zamówienia jest inkrementacją poprzedniej wartości, stąd łatwo przewidzieć dozwolone wartości i otrzymać pełne informacje o wszystkich zamówieniach w systemie.
+ W~2015 roku odkryto wiele podatności w~rozszerzeniu dla systemu Wordpress --- TheCartPress (CVE-2015-3300) \cite{thecartpress}. Jedna z~nich polegała na błędnej kontroli dostępu do obiektu. Atakujący mógł otworzyć następujący URL [\ref{thecartpress1}], a~następnie przejść na adres [\ref{thecartpress2}], który zawiera pełne informacje dotyczące zamówienia w~sklepie internetowym. Identyfikator zamówienia jest inkrementacją poprzedniej wartości, stąd łatwo przewidzieć dozwolone wartości i~otrzymać pełne informacje o~wszystkich zamówieniach w~systemie.
+\pagebreak
 
-\begin{lstlisting}[caption=adres URL zamówienia w systemie TheCartPress,label=thecartpress1]
+\begin{lstlisting}[caption=adres URL zamówienia w~systemie TheCartPress,label=thecartpress1]
 http://wordpress/shopping-cart/checkout/?tcp_checkout=ok&order_id=[order_id]
 \end{lstlisting}
 
@@ -291,42 +294,42 @@ http://wordpress/wp-admin/admin-ajax.php?order_id=[order_id]&action=tcp_print_or
 
 
 \subsection{Błędna konfiguracja bezpieczeństwa}
-Błędy związane z konfiguracją bezpieczeństwa mogą wystąpić praktycznie na każdej warstwie aplikacji: sprzęt, system operacyjny, serwer WWW, system zarządzania bazą danych, kod źródłowy. Szczególną uwagę należy zwrócić na aktualizacje bezpieczeństwa, które łatają podatności oprogramowania wykorzystywanego na serwerze. Ważnym elementem jest również prawidłowa konfiguracja zapory sieciowej i udostępnienie tylko potrzebnych usług. Gotowe aplikacje internetowe często posługują się domyślnym kontem administratora, które ma powszechnie znane hasło. Takie konta należy dezaktywować, ponieważ nawet zautomatyzowane ataki wykorzystują te dane do prób włamania. Również przy tworzeniu własnego oprogramowania można popełnić wiele błędów. Platformy programistyczne (\textit{ang. framework}) często udostępniają tryb debugowania, który podczas błędów udziela szczegółowych informacji o wystąpieniu problemu (nawet z fragmentami kodu). Pozostawienie takiego trybu na systemach produkcyjnych może spowodować wyciek informacji o architekturze systemu i wartości sekretnych zmiennych.
+Błędy związane z~konfiguracją bezpieczeństwa mogą wystąpić praktycznie na każdej warstwie aplikacji: sprzęt, system operacyjny, serwer WWW, system zarządzania bazą danych, kod źródłowy. Szczególną uwagę należy zwrócić na aktualizacje bezpieczeństwa, które łatają podatności oprogramowania wykorzystywanego na serwerze. Ważnym elementem jest również prawidłowa konfiguracja zapory sieciowej i~udostępnienie tylko potrzebnych usług. Gotowe aplikacje internetowe często posługują się domyślnym kontem administratora, które ma powszechnie znane hasło. Takie konta należy dezaktywować, ponieważ nawet zautomatyzowane ataki wykorzystują te dane do prób włamania. Również przy tworzeniu własnego oprogramowania można popełnić wiele błędów. Platformy programistyczne (\textit{ang. framework}) często udostępniają tryb debugowania, który podczas błędów udziela szczegółowych informacji o~wystąpieniu problemu (nawet z~fragmentami kodu). Pozostawienie takiego trybu na systemach produkcyjnych może spowodować wyciek informacji o~architekturze systemu i~wartości sekretnych zmiennych.
 
 \subsubsection*{Przykład}
-Django \footnote{\\url{https://www.djangoproject.com/}} to framework dla języka Python, który pozwala na tworzenie aplikacji internetowych. Na szczególną uwagę zasługują dwie zmienne środowiskowe w pliku konfiguracyjnym: \textit{DEBUG} i \textit{SECRET\_KEY}. Główną funkcją zmiennej \textit{DEBUG} jest szczegółowy widok błędu. Gdy aplikacja napotka na błąd wykonania (nieprzechwycony wyjątek) to wyświetli dokładny opis problemu, wraz z fragmentami kodu na stosie wywołań, zawartością plików konfiguracyjnych i treścią żądania HTTP. W celu zwiększenia bezpieczeństwa, twórcy Django dodali automatyczne usuwanie wartości zmiennych o nazwach podobnych do ,,pass'', ,,token'', itp. W połączeniu z dodatkowymi rozszerzeniami, programista może w łatwy sposób uzyskać interaktywną konsolę z interpreterem języka Python, która będzie działała na stronie ze szczegółami błędu. Uruchomienie aplikacji w tym trybie na systemie produkcyjnym pozwoli atakującemu w łatwy sposób przejąć kontrolę nad powłoką systemową i wykonać dowolne polecenia. Zmienna \textit{SECRET\_KEY} służy do podpisów kryptograficznych i powinna być unikalna oraz nieprzewidywalna. Częstym błędem jest niezmienianie wartości tej zmiennej po pobraniu projektu, przez co atakujący może podpisać własne dane przy pomocy znanego klucza, a aplikacja zaakceptuje je i np.~autoryzuje użytkownika.
+Django \footnote{\url{https://www.djangoproject.com/}} to framework dla języka Python, który pozwala na tworzenie aplikacji internetowych. Na szczególną uwagę zasługują dwie zmienne środowiskowe w~pliku konfiguracyjnym: \textit{DEBUG} i~\textit{SECRET\_KEY}. Główną funkcją zmiennej \textit{DEBUG} jest szczegółowy widok błędu. Gdy aplikacja napotka na błąd wykonania (nieprzechwycony wyjątek) to wyświetli dokładny opis problemu, wraz z~fragmentami kodu na stosie wywołań, zawartością plików konfiguracyjnych i~treścią żądania HTTP. W~celu zwiększenia bezpieczeństwa, twórcy Django dodali automatyczne usuwanie wartości zmiennych o~nazwach podobnych do ,,pass'', ,,token'', itp. W~połączeniu z~dodatkowymi rozszerzeniami \cite{werkzeug}, programista może w~łatwy sposób uzyskać interaktywną konsolę z~interpreterem języka Python, która będzie działała na stronie ze szczegółami błędu. Uruchomienie aplikacji w~tym trybie na systemie produkcyjnym pozwoli atakującemu w~łatwy sposób przejąć kontrolę nad powłoką systemową i~wykonać dowolne polecenia. Zmienna \textit{SECRET\_KEY} służy do podpisów kryptograficznych i~powinna być unikalna oraz nieprzewidywalna. Częstym błędem jest niezmienianie wartości tej zmiennej po pobraniu projektu, przez co atakujący może podpisać własne dane przy pomocy znanego klucza, a~aplikacja zaakceptuje je i~np.~autoryzuje użytkownika.
 
-W 2009 roku znany portal internetowy wykop.pl został zaatakowany, czego skutkiem był wyciek bazy danych serwisu wraz z danymi o użytkownikach (nazwy, skróty haseł bez soli, adresy e-mail) \cite{wykop}. Baza danych przeznaczona do celów deweloperskich (zawierające kopię bazy produkcyjnej z zachowaniem oryginalnych danych) była dostępna publicznie, bez weryfikacji adresu IP klienta, a sama usługa działała na domyślnych ustawieniach --- brak hasła dla użytkownika \textit{root}. Atakujący w łatwy sposób uzyskali pełną kontrolę nad usługą bazy danych i skopiowali składowane tam informacje.
+ W~2009 roku znany portal internetowy wykop.pl został zaatakowany, czego skutkiem był wyciek bazy danych serwisu wraz z~danymi o~użytkownikach (nazwy, skróty haseł bez soli, adresy e-mail) \cite{wykop}. Baza danych przeznaczona do celów deweloperskich (zawierające kopię bazy produkcyjnej z~zachowaniem oryginalnych danych) była dostępna publicznie, bez weryfikacji adresu IP klienta, a~sama usługa działała na domyślnych ustawieniach --- brak hasła dla użytkownika \textit{root}. Atakujący w~łatwy sposób uzyskali pełną kontrolę nad usługą bazy danych i~skopiowali składowane tam informacje.
 
 \subsection{Ujawnienie wrażliwych danych}
-Przy projektowaniu aplikacji internetowej należy mieć na uwadze możliwość uzyskania przez atakującego dostępu do składowanych danych lub kopii zapasowych tych danych. Jest to możliwe na wszystkich etapach komunikacji sieciowej --- dostęp do danych składowanych na serwerze, podsłuchanie ruchu sieciowego, uzyskanie informacji z przeglądarki internetowej ofiary. Algorytmy kryptograficzne są ciężkie do złamania, dlatego atakujący skupiają się na słabych elementach systemu: kradzież kluczy kryptograficznych, atak typu man-in-the-middle, pozyskanie danych w postaci czystego tekstu po deszyfrowaniu wiadomości przez serwer.
+Przy projektowaniu aplikacji internetowej należy mieć na uwadze możliwość uzyskania przez atakującego dostępu do składowanych danych lub kopii zapasowych tych danych. Jest to możliwe na wszystkich etapach komunikacji sieciowej --- dostęp do danych składowanych na serwerze, podsłuchanie ruchu sieciowego, uzyskanie informacji z~przeglądarki internetowej ofiary. Algorytmy kryptograficzne są ciężkie do złamania, dlatego atakujący skupiają się na słabych elementach systemu: kradzież kluczy kryptograficznych, atak typu man-in-the-middle, pozyskanie danych w~postaci czystego tekstu po deszyfrowaniu wiadomości przez serwer.
 
-Szczególnie wrażliwe dane to: hasła użytkowników, dane osobowe, numery kart kredytowych, itp. Zagrożeniem dla aplikacji jest przechowywanie lub przesyłanie tych danych w postaci czystego tekstu. Jeżeli wprowadzono mechanizmy kryptograficzne, to należy zadbać o dobranie silnych algorytmów i kluczy kryptograficznych (którymi należy odpowiednio zarządzać i rotować co określony czas). Wciąż popularne jest przechowywanie haseł użytkowników w formie skrótu MD5 lub SHA1 bez wprowadzonego ciągu zaburzającego (tzw.~soli). Korzystanie z tych algorytmów jest niezalecane, ponieważ stosunkowo łatwo jest odnaleźć pierwotną formę hasła (nawet przy pomocy ataków typu \textit{brute force}). 
+Szczególnie wrażliwe dane to: hasła użytkowników, dane osobowe, numery kart kredytowych, itp. Zagrożeniem dla aplikacji jest przechowywanie lub przesyłanie tych danych w~postaci czystego tekstu. Jeżeli wprowadzono mechanizmy kryptograficzne, to należy zadbać o~dobranie silnych algorytmów i~kluczy kryptograficznych (którymi należy odpowiednio zarządzać i~rotować co określony czas). Wciąż popularne jest przechowywanie haseł użytkowników w~formie skrótu MD5 lub SHA1 bez wprowadzonego ciągu zaburzającego (tzw.~soli). Korzystanie z~tych algorytmów jest niezalecane, ponieważ stosunkowo łatwo jest odnaleźć pierwotną formę hasła (nawet przy pomocy ataków typu \textit{brute force}). 
 
-Dane przesyłane przy pomocy protokołu HTTP powinny być również szyfrowane, służy do tego protokół TLS. Do ustalenia bezpiecznego kanału komunikacji wykorzystuje się certyfikaty X.509. Współcześnie uzyskanie takiego certyfikatu jest bardzo proste. Projekt Let's Encrypt\footnote{\url{https://letsencrypt.org/}} zarządzany przez Internet Security Research Group ma na celu upowszechnienie stosowania protokołu HTTPS. Jest to urząd certyfikacji, który oferuje darmowe certyfikaty X.509. Dzięki temu można w prosty sposób zapewnić podstawowe bezpieczeństwo komunikacji bez ponoszenia dodatkowych kosztów.
+Dane przesyłane przy pomocy protokołu HTTP powinny być również szyfrowane, służy do tego protokół TLS. Do ustalenia bezpiecznego kanału komunikacji wykorzystuje się certyfikaty X.509. Współcześnie uzyskanie takiego certyfikatu jest bardzo proste. Projekt Let's Encrypt\footnote{\url{https://letsencrypt.org/}} zarządzany przez Internet Security Research Group ma na celu upowszechnienie stosowania protokołu HTTPS. Jest to urząd certyfikacji, który oferuje darmowe certyfikaty X.509. Dzięki temu można w~prosty sposób zapewnić podstawowe bezpieczeństwo komunikacji bez ponoszenia dodatkowych kosztów.
 
 \subsubsection*{Przykład}
-W czerwcu 2016 roku największy rosyjski portal społecznościowy VK.com został zaatakowany \cite{vk}. W wyniku ataku uzyskano dostęp do bazy danych serwisu, która zawierała dane osobowe użytkowników, adresy e-mail oraz hasła przechowywane w formie czystego tekstu. Kopia bazy zawierała ponad 100 milionów rekordów. Było to szczególnie niebezpieczne dla tych użytkowników, którzy korzystali z tego samego hasła również w innych serwisach internetowych. 
+ W~czerwcu 2016 roku największy rosyjski portal społecznościowy VK.com został zaatakowany \cite{vk}. W~wyniku ataku uzyskano dostęp do bazy danych serwisu, która zawierała dane osobowe użytkowników, adresy e-mail oraz hasła przechowywane w~formie czystego tekstu. Kopia bazy zawierała ponad 100 milionów rekordów. Było to szczególnie niebezpieczne dla tych użytkowników, którzy korzystali z~tego samego hasła również w~innych serwisach internetowych. 
 
 
 \subsection{Niewystarczająca ochrona przed atakami}
-Zabezpieczenie się przed wszystkimi rodzajami ataków jest bardzo trudne do zrealizowania. Niektóre z nich nie wykorzystują podatności samej aplikacji, a np.~próbują w zautomatyzowany sposób odgadnąć hasła użytkowników metoda siłową. W celu zwiększenia bezpieczeństwa należy wdrożyć mechanizmy wykrywania i reagowania na ataki (manualne i zautomatyzowane).
+Zabezpieczenie się przed wszystkimi rodzajami ataków jest bardzo trudne do zrealizowania. Niektóre z~nich nie wykorzystują podatności samej aplikacji, a~np.~próbują w~zautomatyzowany sposób odgadnąć hasła użytkowników metoda siłową. W~celu zwiększenia bezpieczeństwa należy wdrożyć mechanizmy wykrywania i~reagowania na ataki (manualne i~zautomatyzowane).
 
-Detekcja ataków polega na monitorowaniu przychodzącego ruchu sieciowego (również na warstwie aplikacji) i analizie pod kątem: częstotliwości żądań, wprowadzanych danych, powtarzalności, itp. Nawet podstawowa metryka polegająca na analizie wolumenu ruchu per adres IP pozwala na wykrycie anomalii i podjęcie odpowiedniej reakcji. Reagowanie na ataki to przede wszystkim powiadomienie administratorów o zaistniałym potencjalnym zagrożeniu. Na podstawie rejestrów zdarzeń można podjąć decyzję o zablokowaniu danego adresu IP lub całego zakresu. W przypadku uwierzytelnionych użytkowników jedną z możliwości jest zablokowanie konta użytkownika.
+Detekcja ataków polega na monitorowaniu przychodzącego ruchu sieciowego (również na warstwie aplikacji) i~analizie pod kątem: częstotliwości żądań, wprowadzanych danych, powtarzalności, itp. Nawet podstawowa metryka polegająca na analizie wolumenu ruchu per adres IP pozwala na wykrycie anomalii i~podjęcie odpowiedniej reakcji. Reagowanie na ataki to przede wszystkim powiadomienie administratorów o~zaistniałym potencjalnym zagrożeniu. Na podstawie rejestrów zdarzeń można podjąć decyzję o~zablokowaniu danego adresu IP lub całego zakresu. W~przypadku uwierzytelnionych użytkowników jedną z~możliwości jest zablokowanie konta użytkownika.
 
-Odnalezione podatności wymagają wytworzenia przez programistów odpowiedniej aktualizacji. W przypadku zewnętrznego oprogramowania, proces ten może potrwać nawet kilka tygodni. W tym celu można wykorzystać mechanizmy, które analizują ruch HTTP i blokują określone wzorce żądań wykorzystujące podatności aplikacji.
+Odnalezione podatności wymagają wytworzenia przez programistów odpowiedniej aktualizacji. W~przypadku zewnętrznego oprogramowania, proces ten może potrwać nawet kilka tygodni. W~tym celu można wykorzystać mechanizmy, które analizują ruch HTTP i~blokują określone wzorce żądań wykorzystujące podatności aplikacji.
 
 \subsubsection*{Przykład}
-Jednym z popularnych mechanizmów do obrony przed atakami siłowymi jest mechanizm \textit{CAPTCHA}. Polega on na wyświetleniu przy np. trzeciej i każdej kolejnej nieudanej próbie pewnego dodatkowego zadania, które użytkownik musi wykonać. Zazwyczaj polega to na przepisaniu frazy z wyświetlonego obrazu, który jest przygotowany w taki sposób, by utrudnić pracę algorytmom OCR. 
+Jednym z~popularnych mechanizmów do obrony przed atakami siłowymi jest mechanizm \textit{CAPTCHA}. Polega on na wyświetleniu przy np. trzeciej i~każdej kolejnej nieudanej próbie pewnego dodatkowego zadania, które użytkownik musi wykonać. Zazwyczaj polega to na przepisaniu frazy z~wyświetlonego obrazu, który jest przygotowany w~taki sposób, by utrudnić pracę algorytmom OCR. 
 
 
 \subsection{Cross-Site Request Forgery (CSRF)}
-Jest to metoda ataku na aplikację internetową, która polega na wykorzystaniu przez atakującego uprawnień ofiary do nieświadomego wykonania przez nią określonej operacji. Atak ten jest często wykorzystywany razem z XSS.
-Ataki CSRF zazwyczaj powodują wykonanie żądania HTTP, które zmienia stan obiektu --- atakujący nie ma możliwości odebrania odpowiedzi na żądanie od serwera, dlatego atak ten jest skuteczny np.~przy zmianie hasła ofiary, wykonaniu przelewu lub w przypadku gdy użytkownik posiada podwyższone uprawnienia --- naruszeniu strony internetowej.
+Jest to metoda ataku na aplikację internetową, która polega na wykorzystaniu przez atakującego uprawnień ofiary do nieświadomego wykonania przez nią określonej operacji. Atak ten jest często wykorzystywany razem z~XSS.
+Ataki CSRF zazwyczaj powodują wykonanie żądania HTTP, które zmienia stan obiektu --- atakujący nie ma możliwości odebrania odpowiedzi na żądanie od serwera, dlatego atak ten jest skuteczny np.~przy zmianie hasła ofiary, wykonaniu przelewu lub w~przypadku gdy użytkownik posiada podwyższone uprawnienia --- naruszeniu strony internetowej.
 
-Przeprowadzenie ataku wymaga zmuszenia ofiary do wykonania określonego żądania HTTP. Może to być wykonane przy pomocy inżynierii społecznej. Czasami istnieje możliwość ,,przechowania'' ataku w samej aplikacji, np.~w tagu HTML lub przy pomocy bardziej skomplikowanego ataku XSS. Żądania wykonywane przez przeglądarkę automatycznie zawierają dane związane z odwiedzaną stroną takie jak adres IP czy HTTP Cookie. Ofiara nieświadomie wykona zapytanie do serwera, które zmienia stan atakowanego obiektu. Odpowiedź serwera trafia do ofiary (ale jest ona ukryta), dlatego celem ataku nie są dane.
+Przeprowadzenie ataku wymaga zmuszenia ofiary do wykonania określonego żądania HTTP. Może to być wykonane przy pomocy inżynierii społecznej. Czasami istnieje możliwość ,,przechowania'' ataku w~samej aplikacji, np.~w tagu HTML lub przy pomocy bardziej skomplikowanego ataku XSS. Żądania wykonywane przez przeglądarkę automatycznie zawierają dane związane z~odwiedzaną stroną takie jak adres IP czy HTTP Cookie. Ofiara nieświadomie wykona zapytanie do serwera, które zmienia stan atakowanego obiektu. Odpowiedź serwera trafia do ofiary (ale jest ona ukryta), dlatego celem ataku nie są dane.
 
-Współcześnie zręby projektowe, na podstawie których buduje się aplikacje internetowe, posiadają już gotowe zabezpieczenia przed atakiem CSRF przy pomocy żetonów. Do każdego wygenerowanego formularza (i równocześnie sesji użytkownika) przynależy żeton CSRF o losowej wartości, który należy przekazać w żądaniu do serwera. Zazwyczaj żeton ten jest przechowywany w formularzu w postaci ukrytego pola. Atakujący musiałby najpierw pobrać zawartość strony z formularzem aby poznać wartość, jaką następnie musiałby przekazać podczas wykorzystywania uprawnień ofiary.
+Współcześnie zręby projektowe, na podstawie których buduje się aplikacje internetowe, posiadają już gotowe zabezpieczenia przed atakiem CSRF przy pomocy żetonów. Do każdego wygenerowanego formularza (i równocześnie sesji użytkownika) przynależy żeton CSRF o~losowej wartości, który należy przekazać w~żądaniu do serwera. Zazwyczaj żeton ten jest przechowywany w~formularzu w~postaci ukrytego pola. Atakujący musiałby najpierw pobrać zawartość strony z~formularzem aby poznać wartość, jaką następnie musiałby przekazać podczas wykorzystywania uprawnień ofiary.
 
 \subsubsection*{Przykład}
 \begin{lstlisting}[language=html,frame=single,caption=przykładowy kod HTML podatny na atak CSRF \cite{csrf-example},label=csrf01,numbers=left]
@@ -344,7 +347,7 @@ Współcześnie zręby projektowe, na podstawie których buduje się aplikacje i
 
 session_start();
 
-//if the session is registered to a valid user then allow update
+//if the session is registered to a~valid user then allow update
 
 if (! session_is_registered("username")) {
 
@@ -389,80 +392,80 @@ form.submit();
 </form>
 \end{lstlisting}
 
-Kod przedstawiony na przykładzie \ref{csrf01} zawiera przykładowy formularz na stronie internetowej, który składa się z pól umożliwiających wprowadzenie imienia, nazwiska i adresu e-mail. Zatwierdzenie formularza kieruje do strony umieszczonej na przykładzie \ref{csrf02}. Kod PHP sprawdza poprawność sesji użytkownika i aktualizuje dane przesłane w formularzu. Atakujący przygotowuje stronę (przykład \ref{csrf03}), na której umieszcza ukryty formularz. Po załadowaniu wykonuje się kod JavaScript, który wypełnia pola formularza i zatwierdza akcję. Ofiara nieświadomie zostaje przekierowania na stronę z przykładu \ref{csrf02} i przesyła tam dane przygotowane przez atakującego. Sesja przejdzie proces walidacji i dane zostaną zaktualizowane --- atak został wykonany poprawnie.
+Kod przedstawiony na przykładzie \ref{csrf01} zawiera przykładowy formularz na stronie internetowej, który składa się z~pól umożliwiających wprowadzenie imienia, nazwiska i~adresu e-mail. Zatwierdzenie formularza kieruje do strony umieszczonej na przykładzie \ref{csrf02}. Kod PHP sprawdza poprawność sesji użytkownika i~aktualizuje dane przesłane w~formularzu. Atakujący przygotowuje stronę (przykład \ref{csrf03}), na której umieszcza ukryty formularz. Po załadowaniu wykonuje się kod JavaScript, który wypełnia pola formularza i~zatwierdza akcję. Ofiara nieświadomie zostaje przekierowania na stronę z~przykładu \ref{csrf02} i~przesyła tam dane przygotowane przez atakującego. Sesja przejdzie proces walidacji i~dane zostaną zaktualizowane --- atak został wykonany poprawnie.
 
-\subsection{Korzystanie z komponentów o znanych podatnościach}
-Współczesne aplikacje internetowe korzystają z wielu komponentów, które zostały wykonane przez innych programistów i opublikowane w Internecie. Często są to duże biblioteki rozwijane przez społeczność, która składa się z osób o różnym doświadczeniu i wiedzy na temat metod bezpiecznego programowania. Wyzwaniem dla twórców oprogramowania jest ciągłe monitorowanie i weryfikacja aplikacji pod kątem podatności znalezionych w komponentach zależnych. 
+\subsection{Korzystanie z~komponentów o~znanych podatnościach}
+Współczesne aplikacje internetowe korzystają z~wielu komponentów, które zostały wykonane przez innych programistów i~opublikowane w~Internecie. Często są to duże biblioteki rozwijane przez społeczność, która składa się z~osób o~różnym doświadczeniu i~wiedzy na temat metod bezpiecznego programowania. Wyzwaniem dla twórców oprogramowania jest ciągłe monitorowanie i~weryfikacja aplikacji pod kątem podatności znalezionych w~komponentach zależnych. 
 
-Biblioteki JavaScript często w nagłówkach plików zawierają informacje o wersji kodu. Te i inne informacje mogą być znalezione przez atakującego przy pomocy zautomatyzowanych procesów, a następnie wykorzystane do wykonania pełnej gamy ataków. Podobny problem może występować w bibliotekach wykorzystywanych po stronie serwera, gdzie ich istnienie można weryfikować na podstawie odpowiedzi serwera HTTP po zapytaniu o konkretny adres URL. 
+Biblioteki JavaScript często w~nagłówkach plików zawierają informacje o~wersji kodu. Te i~inne informacje mogą być znalezione przez atakującego przy pomocy zautomatyzowanych procesów, a~następnie wykorzystane do wykonania pełnej gamy ataków. Podobny problem może występować w~bibliotekach wykorzystywanych po stronie serwera, gdzie ich istnienie można weryfikować na podstawie odpowiedzi serwera HTTP po zapytaniu o~konkretny adres URL. 
 
-Niestety, monitorowanie podatności komponentów nie jest łatwym zadaniem. Nie wszystkie informacje trafiają do baz takich jak CVE czy NVD, nie istnieje również żaden standard opisu podatności. Proces często wymaga śledzenia wielu list dyskusyjnych czy stron internetowych, co ciężko jest zautomatyzować. Dla projektów realizowanych w JavaScript można wykorzystać projekt \textit{NodeSecurity} \footnote{\url{https://nodesecurity.io/}}, a dla języka Ruby stworzono \textit{RubySec}\footnote{\url{https://rubysec.com/}}. Dla języków Java i .NET organizacja OWASP opublikowała projekt OWASP Dependency Check \footnote{\url{https://www.owasp.org/index.php/OWASP\_Dependency\_Check}}.
+Niestety, monitorowanie podatności komponentów nie jest łatwym zadaniem. Nie wszystkie informacje trafiają do baz takich jak CVE czy NVD, nie istnieje również żaden standard opisu podatności. Proces często wymaga śledzenia wielu list dyskusyjnych czy stron internetowych, co ciężko jest zautomatyzować. Dla projektów realizowanych w~JavaScript można wykorzystać projekt \textit{NodeSecurity} \footnote{\url{https://nodesecurity.io/}}, a~dla języka Ruby stworzono \textit{RubySec}\footnote{\url{https://rubysec.com/}}. Dla języków Java i~.NET organizacja OWASP opublikowała projekt OWASP Dependency Check \footnote{\url{https://www.owasp.org/index.php/OWASP\_Dependency\_Check}}.
 
 \subsubsection*{Przykład}
-Play Framework \footnote{\url{https://www.playframework.com/}} to zrąb projektowy pozwalający na tworzenie aplikacji internetowych w językach Java i Scala. Oprogramowanie opierające się o Play w wersjach 2.0.0 - 2.4.6 były podatne na atak CSRF gdy przeglądarką ofiary był Google Chrome. Podatność opublikowana przez producenta \cite{playv1} zawierała opis z tymczasowym załataniem luki przez zmianę konfiguracji. Oficjalnym zaleceniem była aktualizacja wersji Play do 2.5.0.
+Play Framework \footnote{\url{https://www.playframework.com/}} to zrąb projektowy pozwalający na tworzenie aplikacji internetowych w~językach Java i~Scala. Oprogramowanie opierające się o~Play w~wersjach 2.0.0 - 2.4.6 były podatne na atak CSRF gdy przeglądarką ofiary był Google Chrome. Podatność opublikowana przez producenta \cite{playv1} zawierała opis z~tymczasowym załataniem luki przez zmianę konfiguracji. Oficjalnym zaleceniem była aktualizacja wersji Play do 2.5.0.
 
-\subsection{Niewystarczająca ochrona interfejsów programistycznych (API)}
-Interfejsy programistyczne udostępniane przez współczesne aplikacje internetowe są przeznaczone do wykorzystywania w zewnętrznych aplikacjach. Brak interfejsu użytkownika, skomplikowane protokoły i struktury danych, różnorodne formaty (REST, XML, JSON, GWT, RPC) --- to czynniki, które utrudniają testy bezpieczeństwa. Wszystkie dotychczas przedstawione podatności mogą znajdować się również w API i należy podjąć odpowiednie kroki aby interfejs był bezpieczny i systematycznie testowany.
+\subsection{Niewystarczająca ochrona interfejsów programistycznych}
+Interfejsy programistyczne udostępniane przez współczesne aplikacje internetowe są przeznaczone do wykorzystywania w~zewnętrznych aplikacjach. Brak interfejsu użytkownika, skomplikowane protokoły i~struktury danych, różnorodne formaty (REST, XML, JSON, GWT, RPC) --- to czynniki, które utrudniają testy bezpieczeństwa. Wszystkie dotychczas przedstawione podatności mogą znajdować się również w~API i~należy podjąć odpowiednie kroki aby interfejs był bezpieczny i~systematycznie testowany.
 
-Podstawowym elementem jest szyfrowanie kanałów komunikacji przy pomocy TLS. Przesyłanie danych przy pomocy jawnego tekstu może spowodować wyciek danych. Następnie należy zweryfikować metodę uwierzytelnienia i autoryzacji zapytań użytkowników, czy wykorzystywane algorytmy szyfrowania są odpowiednio silne a dane użytkowników przechowywane w bezpieczny sposób. Interfejsy programistyczne bardzo często przyjmują dane od użytkowników, prawidłowa walidacja danych zapewni ochronę przed atakami typu iniekcja kodu czy XSS.
+Podstawowym elementem jest szyfrowanie kanałów komunikacji przy pomocy TLS. Przesyłanie danych przy pomocy jawnego tekstu może spowodować wyciek danych. Następnie należy zweryfikować metodę uwierzytelnienia i~autoryzacji zapytań użytkowników, czy wykorzystywane algorytmy szyfrowania są odpowiednio silne a~dane użytkowników przechowywane w~bezpieczny sposób. Interfejsy programistyczne bardzo często przyjmują dane od użytkowników, prawidłowa walidacja danych zapewni ochronę przed atakami typu iniekcja kodu czy XSS.
 
-Interfejsy programistyczne są często wykorzystywane przez aplikacje mobilne do komunikacji z serwisem macierzystym. Przy pomocy inżynierii wstecznej atakujący może poznać kod źródłowy aplikacji i protokół komunikacji z serwerem. Przy projektowaniu API programista powinien mieć na uwadze fakt, że osoby niepowołane mogą poznać wykorzystywane algorytmy i struktury danych, dlatego zastosowanie odpowiednich zabezpieczeń i kontroli dostępu jest konieczne nawet w przypadku zamkniętego oprogramowania.
+Interfejsy programistyczne są często wykorzystywane przez aplikacje mobilne do komunikacji z~serwisem macierzystym. Przy pomocy inżynierii wstecznej atakujący może poznać kod źródłowy aplikacji i~protokół komunikacji z~serwerem. Przy projektowaniu API programista powinien mieć na uwadze fakt, że osoby niepowołane mogą poznać wykorzystywane algorytmy i~struktury danych, dlatego zastosowanie odpowiednich zabezpieczeń i~kontroli dostępu jest konieczne nawet w~przypadku zamkniętego oprogramowania.
 
-\section{Mechanizmy wbudowane w przeglądarki internetowe}
-Nowoczesne przeglądarki internetowe implementują wiele mechanizmów chroniących użytkownika przed atakami typu XSS czy CSRF. Wykorzystanie znalezionej podatności na stronie internetowej jest często niemożliwe, ponieważ wspomniane mechanizmy blokują żądania HTTP na poziomie klienta. Podczas projektowania aplikacji i konfiguracji serwerów WWW należy mieć na uwadze wymagane dodatkowe nagłówki, których wartość jest weryfikowana podczas dynamicznych lub zagnieżdżonych odwołań (szczególnie między domenami). Organizacja OWASP opublikowała listę kilku najważniejszych zabezpieczeń zaimplementowanych w przeglądarkach \cite{html5security}.
+\section{Mechanizmy wbudowane w~przeglądarki internetowe}
+Nowoczesne przeglądarki internetowe implementują wiele mechanizmów chroniących użytkownika przed atakami typu XSS czy CSRF. Wykorzystanie znalezionej podatności na stronie internetowej jest często niemożliwe, ponieważ wspomniane mechanizmy blokują żądania HTTP na poziomie klienta. Podczas projektowania aplikacji i~konfiguracji serwerów WWW należy mieć na uwadze wymagane dodatkowe nagłówki, których wartość jest weryfikowana podczas dynamicznych lub zagnieżdżonych odwołań (szczególnie między domenami). Organizacja OWASP opublikowała listę kilku najważniejszych zabezpieczeń zaimplementowanych w~przeglądarkach \cite{html5security}.
 
 \subsection{Wiadomości między domenami}
-Przesyłanie wiadomości między dokumentami sieci Web zostało wprowadzone w specyfikacji HTML5. Wcześniej przeglądarki nie umożliwiały komunikacji między stronami internetowymi ze względów bezpieczeństwa. Udostępniony interfejs programistyczny pozwala na weryfikację adresu domeny nadawcy (ang.~\textit{origin}). Ważna jest również weryfikacja danych przesyłanych przy pomocy kanału. Nigdy nie należy traktować tych danych jako zaufane, w szczególności niezalecane jest bezpośrednie przekazanie treści wiadomości do interpretera (funkcje typu \textit{eval}).
+Przesyłanie wiadomości między dokumentami sieci Web zostało wprowadzone w~specyfikacji HTML5. Wcześniej przeglądarki nie umożliwiały komunikacji między stronami internetowymi ze względów bezpieczeństwa. Udostępniony interfejs programistyczny pozwala na weryfikację adresu domeny nadawcy (ang.~\textit{origin}). Ważna jest również weryfikacja danych przesyłanych przy pomocy kanału. Nigdy nie należy traktować tych danych jako zaufane, w~szczególności niezalecane jest bezpośrednie przekazanie treści wiadomości do interpretera (funkcje typu \textit{eval}).
 
 \subsection{Cross Origin Resource Sharing --- współdzielenie zasobów między domenami}
-Mechanizm ten pozwala na wykoniwanie asynchronicznych żądań (AJAX) między serwerami o różnych domenach przy zachowaniu weryfikacji źródła żądania. W przypadku dynamicznego odwołania do innej domeny, przeglądarka wyśle najpierw żądanie typu \textit{OPTIONS} i zweryfikuje zawartość nagłówka \textit{Access-Control-Allow-Origin}. Wartość \textit{*} pozwala na odwołania do zasobów z dowolnego źródła. Wszystkie inne żądania, które nie pasują do wzorca zdefiniowanego w wartości nagłówka zostaną zablokowane na poziomie przeglądarki (odpowiednia informacja o błędzie zostanie zazwyczaj wyświetlona w konsoli interpretera języka JavaScript). Mechanizm CORS pozwala również na weryfikację dopuszczalnych nagłówków przesłanych w żądaniu.
+Mechanizm ten pozwala na wykoniwanie asynchronicznych żądań (AJAX) między serwerami o~różnych domenach przy zachowaniu weryfikacji źródła żądania. W~przypadku dynamicznego odwołania do innej domeny, przeglądarka wyśle najpierw żądanie typu \textit{OPTIONS} i~zweryfikuje zawartość nagłówka \textit{Access-Control-Allow-Origin}. Wartość \textit{*} pozwala na odwołania do zasobów z~dowolnego źródła. Wszystkie inne żądania, które nie pasują do wzorca zdefiniowanego w~wartości nagłówka zostaną zablokowane na poziomie przeglądarki (odpowiednia informacja o~błędzie zostanie zazwyczaj wyświetlona w~konsoli interpretera języka JavaScript). Mechanizm CORS pozwala również na weryfikację dopuszczalnych nagłówków przesłanych w~żądaniu.
 
 \subsection{HTTP Strict Transport Security}
-HSTS to mechanizm zabezpieczający przed zmniejszeniem poziomu bezpieczeństwa kanału i przechwyceniem sesji. Serwer informuje przeglądarkę o stosowaniu HSTS przy pomocy nagłówka \textit{Strict-Transport-Security}, którego parametr oznacza czas przez który przeglądarka powinna wykorzystywać wyłącznie połączenia szyfrowane. Wszystkie odwołania do strony internetowej powinny być automatycznie tłumaczone z \textit{http://} na \textit{https://}, a jeżeli certyfikat jest niezaufany --- przeglądarka nie powinna pozwolić użytkownikowi na nawiązanie połączenia.
+HSTS to mechanizm zabezpieczający przed zmniejszeniem poziomu bezpieczeństwa kanału i~przechwyceniem sesji. Serwer informuje przeglądarkę o~stosowaniu HSTS przy pomocy nagłówka \textit{Strict-Transport-Security}, którego parametr oznacza czas przez który przeglądarka powinna wykorzystywać wyłącznie połączenia szyfrowane. Wszystkie odwołania do strony internetowej powinny być automatycznie tłumaczone z~\textit{http://} na \textit{https://}, a~jeżeli certyfikat jest niezaufany --- przeglądarka nie powinna pozwolić użytkownikowi na nawiązanie połączenia.
 
 \subsection{HTTP Public Key Pinning}
-Połączenie szyfrowane przy pomocy SSL nie gwarantuje tożsamości drugiej strony bez weryfikacji klucza publicznego drugiej strony. Atakujący mogą wykorzystać słabości mechanizmów urzędów certyfikacji i zmusić je do wydania certyfikatu typu DV (weryfikacja domeny), co przy próbie podszycia może dać złudne poczucie bezpieczeństwa komunikacji z serwerem. HPKP pozwala na przesłanie w nagłówku \textit{Public-Key-Pins} zestawu kluczy publicznych, które przez określony czas przeglądarka powinna uznawać za jedyne poprawne i nie dopuszczać do nawiązania połączenia z serwerem, który przedstawia się przy pomocy innego klucza.
+Połączenie szyfrowane przy pomocy SSL/TLS nie gwarantuje w~pełni tożsamości drugiej strony bez dodatkowej weryfikacji jej klucza publicznego. Atakujący mogą wykorzystać słabości mechanizmów urzędów certyfikacji i~zmusić je do wydania certyfikatu typu DV (weryfikacja domeny), co przy próbie podszycia może dać złudne poczucie bezpieczeństwa komunikacji z~serwerem. HPKP pozwala na przesłanie w~nagłówku \textit{Public-Key-Pins} zestawu kluczy publicznych, które przez określony czas przeglądarka powinna uznawać za jedyne poprawne i~nie dopuszczać do nawiązania połączenia z~serwerem, który przedstawia się przy pomocy innego klucza.
 
 \section{Web Application Firewall}
 \label{waf}
-Web Application Firewall to zapora sieciowa dla aplikacji webowych. Dokonuje ona ewaluacji reguł na konwersacji HTTP. Reguły te pokrywają standardowe ataki takie jak iniekcja kodu SQL czy XSS. WAF ma za zadanie chronić aplikację internetową, przyjmuje żądania od wielu klientów i kieruje je na serwery WWW, stąd można go uznać jako odwrotny serwer pośredniczący, chociaż nie musi działać jako osobny proces.
+Web Application Firewall to zapora sieciowa dla aplikacji webowych. Dokonuje ona ewaluacji reguł na konwersacji HTTP. Reguły te pokrywają standardowe ataki takie jak iniekcja kodu SQL czy XSS. WAF ma za zadanie chronić aplikację internetową, przyjmuje żądania od wielu klientów i~kieruje je na serwery WWW, stąd można go uznać jako odwrotny serwer pośredniczący, chociaż nie musi działać jako osobny proces.
 
-WAF jest dedykowany do ochrony aplikacji webowych, analizuje ruch na warstwie 7.~modelu OSI. Jest w stanie wykryć i zablokować żądania, których analiza byłaby niemożliwa przy pomocy standardowych rozwiązań takich jak zapora sieciowa czy system IPS. Zastosowanie WAF jest całkowicie transparentne dla aplikacji i nie wymaga modyfikacji kodu źródłowego.
+WAF jest dedykowany do ochrony aplikacji webowych, analizuje ruch na warstwie 7.~modelu OSI. Jest w~stanie wykryć i~zablokować żądania, których analiza byłaby niemożliwa przy pomocy standardowych rozwiązań takich jak zapora sieciowa czy system IPS. Zastosowanie WAF jest całkowicie transparentne dla aplikacji i~nie wymaga modyfikacji kodu źródłowego.
 
-Zastosowanie tego rodzaju zabezpieczenia pozwala w znaczący sposób zredukować ryzyko wykorzystania podatności systemu bez faktycznego usunięcia tej podatności. W przypadku gdy wydanie odpowiedniej łatki na oprogramowanie może zająć bardzo dużo czasu --- dodanie odpowiednich reguł do zapory pozwala na uzyskanie szybkiej ochrony przed atakującymi.
+Zastosowanie tego rodzaju zabezpieczenia pozwala w~znaczący sposób zredukować ryzyko wykorzystania podatności systemu bez faktycznego usunięcia tej podatności. W~przypadku gdy wydanie odpowiedniej łatki na oprogramowanie może zająć bardzo dużo czasu --- dodanie odpowiednich reguł do zapory pozwala na uzyskanie szybkiej ochrony przed atakującymi.
 
 Kontrola ruchu może być realizowana przy pomocy dwóch modeli:
 \begin{itemize}
 \item \textbf{model negatywny} --- definiuje wzorce żądań potencjalnie niebezpiecznych, które zostaną zablokowane, zmodyfikowane lub zapisane, pozostałe zostaną przepuszczone;
-\item \textbf{model pozytywny} --- definiuje wzorce akceptowalnych żądań, pozostałe zostaną zablokowane lub zapisane w dzienniku.
+\item \textbf{model pozytywny} --- definiuje wzorce akceptowalnych żądań, pozostałe zostaną zablokowane lub zapisane w~dzienniku.
 \end{itemize}
 
-Wyzwaniem dla administratora pozostaje stworzenie i aktualizacja listy reguł ewaluowanych przez zaporę. Reguły te powinny pokrywać zarówno odkryte podatności (przed wydaniem poprawki na oprogramowanie) jak i w maksymalny możliwy sposób chronić przed nieznanymi podatnościami, które mogą zostać wykorzystane zanim się o nich dowiemy, np.~jeżeli nasza aplikacja nie przyjmuje nigdzie danych zawierających słowa kluczowe języka SQL, to możemy stworzyć regułę w której wszystkie żądania zawierające słowa \textit{SELECT, UPDATE, DELETE} zostaną zablokowane.
+Wyzwaniem dla administratora pozostaje stworzenie i~aktualizacja listy reguł ewaluowanych przez zaporę. Reguły te powinny pokrywać zarówno odkryte podatności (przed wydaniem poprawki na oprogramowanie) jak i~w maksymalny możliwy sposób chronić przed nieznanymi podatnościami, które mogą zostać wykorzystane zanim się o~nich dowiemy, np.~jeżeli nasza aplikacja nie przyjmuje nigdzie danych zawierających słowa kluczowe języka SQL, to możemy stworzyć regułę w~której wszystkie żądania zawierające słowa \textit{SELECT, UPDATE, DELETE} zostaną zablokowane.
 
 \subsection{Oprogramowanie}
-Web Application Firewall to mechanizm, który z powodzeniem może istnieć jako aplikacja uruchomiona w systemie operacyjnym. Proces ten działa dokładnie tak jak serwer WWW, ale realizuję funkcję odwrotnego pośrednika i po analizie żądania dokonuje blokady lub przekazuje pakiety do serwerów aplikacyjnych. Poniżej opisano dwa popularne rozwiązania WAF na licencji open-source.
+Web Application Firewall to mechanizm, który z~powodzeniem może istnieć jako aplikacja uruchomiona w~systemie operacyjnym. Proces ten działa dokładnie tak jak serwer WWW, ale realizuję funkcję odwrotnego pośrednika i~po analizie żądania dokonuje blokady lub przekazuje pakiety do serwerów aplikacyjnych. Poniżej opisano dwa popularne rozwiązania WAF na licencji open-source.
 
 \subsubsection{ModSecurity}
 ModSecurity \footnote{\url{https://modsecurity.org/}} to wieloplatformowa zapora aplikacji sieciowych na licencji open-source. Oferuje szeroki wachlarz funkcji, które można wykorzystać do ochrony przed atakami. Do najważniejszych scenariuszy zastosowań należy:
 \begin{itemize} 
-\item monitorowanie bezpieczeństwa aplikacji i kontroli dostępu w czasie rzeczywistym --- ModSecurity pozwala na podgląd strumienia danych HTTP,
-\item dziennik ruchu HTTP --- pozwala na zapis pełnej konwersacji HTTP w postaci surowej, co jest istotnym czynnikiem przy analizach powłamaniowych;
-\item ciągła pasywna ocena bezpieczeństwa --- monitorowanie w czasie rzeczywistym zachowania aplikacji i reagowanie na anomalie lub podatności, zanim zostaną one odkryte;
+\item monitorowanie bezpieczeństwa aplikacji i~kontroli dostępu w~czasie rzeczywistym --- ModSecurity pozwala na podgląd strumienia danych HTTP,
+\item dziennik ruchu HTTP --- pozwala na zapis pełnej konwersacji HTTP w~postaci surowej, co jest istotnym czynnikiem przy analizach powłamaniowych;
+\item ciągła pasywna ocena bezpieczeństwa --- monitorowanie w~czasie rzeczywistym zachowania aplikacji i~reagowanie na anomalie lub podatności, zanim zostaną one odkryte;
 \item zwiększenie bezpieczeństwa aplikacji --- główne zastosowanie ModSecurity, które pozwala na ograniczenie możliwości protokołu HTTP do podzbioru koniecznego do realizowania funkcji oferowanych przez aplikację.
 \end{itemize}
 
-ModSecurity oferuje dwa tryby wdrożeniowe, dzięki czemu można dostosować go do aktualnej architektury systemu i ograniczyć konieczność modyfikacji plików konfiguracyjnych serwerów WWW. Wspierane opcje to:
+ModSecurity oferuje dwa tryby wdrożeniowe, dzięki czemu można dostosować go do aktualnej architektury systemu i~ograniczyć konieczność modyfikacji plików konfiguracyjnych serwerów WWW. Wspierane opcje to:
 \begin{itemize}
-\item tryb wbudowany --- praca jako moduł Apache \footnote{\url{https://apache.org/}}, nie wymaga wprowadznia zmian w przepływie ruchu przez infrastrukturę, skaluje się razem z serwerami WWW z którymi współdzieli zasoby;
-\item tryb samodzielny --- praca jako odwrotny serwer pośredniczący, polega na instalacji Apache z ModSecurity na osobnym serwerze, a następnie skonfigurowanie odpowiedniego przepływu danych do i z zapory, pozwala również na separację zasobów.
+\item tryb wbudowany --- praca jako moduł Apache \footnote{\url{https://apache.org/}}, nie wymaga wprowadznia zmian w~przepływie ruchu przez infrastrukturę, skaluje się razem z~serwerami WWW z~którymi współdzieli zasoby;
+\item tryb samodzielny --- praca jako odwrotny serwer pośredniczący, polega na instalacji Apache z~ModSecurity na osobnym serwerze, a~następnie skonfigurowanie odpowiedniego przepływu danych do i~z zapory, pozwala również na separację zasobów.
 \end{itemize}
 
-Organizacja OWASP rozwija i udostępnia projekt \textbf{OWASP ModSecurity Core Rule Set} \footnote{\url{https://www.owasp.org/index.php/Category:OWASP_ModSecurity_Core_Rule_Set_Project}}, którego celem jest dostarczenie łatwego w implementacji zestawu reguł wykrywających generyczne typy ataków, co pozwala na zapewnienie podstawowego poziomu protekcji dla każdej aplikacji internetowej. CRS oferuje zabezpieczenia przed: SQLi, XSS, zdalnym wykonaniem kodu, atakiem shellsock, przechwytywaniem i fiksacją sesji, itp.
+Organizacja OWASP rozwija i~udostępnia projekt \textbf{OWASP ModSecurity Core Rule Set} \footnote{\url{https://www.owasp.org/index.php/Category:OWASP_ModSecurity_Core_Rule_Set_Project}}, którego celem jest dostarczenie łatwego w~implementacji zestawu reguł wykrywających generyczne typy ataków, co pozwala na zapewnienie podstawowego poziomu protekcji dla każdej aplikacji internetowej. CRS oferuje zabezpieczenia przed: SQLi, XSS, zdalnym wykonaniem kodu, atakiem shellsock, przechwytywaniem i~fiksacją sesji, itp.
 
 \subsubsection{NAXSI}
-NAXSI \footnote{\url{https://github.com/nbs-system/naxsi}} to darmowy, zewnętrzny moduł do serwera Nginx \footnote{\url{https://nginx.org/}}, który oferuje funkcjonalność WAF. Projekt zawiera również mały zestaw prostych reguł, które zawierają wzorce standardowych podatności aplikacji internetowych. Autorzy ostrzegają, że zastosowane wzorce mogą blokować poprawne żądania i należy dostosować białą listę (model pozytywny) do swoich potrzeb. Może to być wykonane ręcznie przez analizę dzienników zdarzeń albo przez tryb samouczący, który automatycznie wygeneruje zestaw reguł na podstawie zachowania aplikacji.
+NAXSI \footnote{\url{https://github.com/nbs-system/naxsi}} to darmowy, zewnętrzny moduł do serwera Nginx \footnote{\url{https://nginx.org/}}, który oferuje funkcjonalność WAF. Projekt zawiera również mały zestaw prostych reguł, które zawierają wzorce standardowych podatności aplikacji internetowych. Autorzy ostrzegają, że zastosowane wzorce mogą blokować poprawne żądania i~należy dostosować białą listę (model pozytywny) do swoich potrzeb. Może to być wykonane ręcznie przez analizę dzienników zdarzeń albo przez tryb samouczący, który automatycznie wygeneruje zestaw reguł na podstawie zachowania aplikacji.
 
-NAXSI nie polega na sygnaturach ataków, filtruje tylko żądania GET i POST, analizowany jest wyłącznie ruch przychodzący --- jeżeli złośliwy kod znajduje się już na stronie to żądania go zwracające nie będą blokowane.
+NAXSI nie polega na sygnaturach ataków, filtruje tylko żądania GET i~POST, analizowany jest wyłącznie ruch przychodzący --- jeżeli złośliwy kod znajduje się już na stronie to żądania go zwracające nie będą blokowane.
 
 Algorytm oceny zagrożenia jest następujący \cite{naxsi-sekurak}:
 \begin{enumerate}
@@ -474,27 +477,27 @@ Algorytm oceny zagrożenia jest następujący \cite{naxsi-sekurak}:
 \end{enumerate}
 
 \subsection{Urządzenia}
-Wiele firm oferujących sprzęt sieciowy ma w swojej ofercie urządzenia typu UTM, które posiadają moduły działające na zasadzie Web Application Firewall. Są to dedykowane urządzenia, które ingerują w infrastrukturę sieciową systemu, dlatego nie mogą być stosowane w miejscach, gdzie administrator nie ma pełnej kontroli nad warstwą sieciową.
+Wiele firm oferujących sprzęt sieciowy ma w~swojej ofercie urządzenia typu UTM, które posiadają moduły działające na zasadzie Web Application Firewall. Są to dedykowane urządzenia, które ingerują w~infrastrukturę sieciową systemu, dlatego nie mogą być stosowane w~miejscach, gdzie administrator nie ma pełnej kontroli nad warstwą sieciową.
 
 \subsubsection{Citrix Netscaller Application Firewall}
-Citrix Netscaller AppFirewall \cite{citrix} to komercyjny produkt wbudowany w urządzenia sieciowe firmy Citrix. Jest to kompleksowe rozwiązanie zapory aplikacyjnej, które analizuje ruch sieciowy w obu stronach (również szyfrowany przy pomocy SSL/TLS) i zabezpiecza przed zagrożeniami bezpieczeństwa. AppFirewall oferuje możliwość dokładnej analizy pakietów zawierających dane HTTP, HTTPS i XML.
+Citrix Netscaller AppFirewall \cite{citrix} to komercyjny produkt wbudowany w~urządzenia sieciowe firmy Citrix. Jest to kompleksowe rozwiązanie zapory aplikacyjnej, które analizuje ruch sieciowy w~obu stronach (również szyfrowany przy pomocy SSL/TLS) i~zabezpiecza przed zagrożeniami bezpieczeństwa. AppFirewall oferuje możliwość dokładnej analizy pakietów zawierających dane HTTP, HTTPS i~XML.
 
-Rozwiązanie to jest w stanie zabezpieczyć system przed atakami opisanymi w OWASP Top10, jak również analizować format żądań i odpowiedzi HTTP. Wbudowane mechanizmy pozwalają na zapobieganie ujawnieniu wrażliwych danych, np.~przeszukując dane pod kątem numerów kart kredytowych.
+Rozwiązanie to jest w~stanie zabezpieczyć system przed atakami opisanymi w~OWASP Top10, jak również analizować format żądań i~odpowiedzi HTTP. Wbudowane mechanizmy pozwalają na zapobieganie ujawnieniu wrażliwych danych, np.~przeszukując dane pod kątem numerów kart kredytowych.
 
-Citrix AppFirewall wykorzystuje hybrydowy model oceny zagrożenia (pozytywny i negatywny), dodatkowo posiada wbudowany system reputacji adresów IP, który na bieżąco analizuje połączenia i blokuje adresy, które zostały globalnie uznane za niebezpieczne. Lista jest tworzona na podstawie danych z milionów sensorów na całym świecie i jest aktualizowana co 5 minut.
+Citrix AppFirewall wykorzystuje hybrydowy model oceny zagrożenia (pozytywny i~negatywny), dodatkowo posiada wbudowany system reputacji adresów IP, który na bieżąco analizuje połączenia i~blokuje adresy, które zostały globalnie uznane za niebezpieczne. Lista jest tworzona na podstawie danych z~milionów sensorów na całym świecie i~jest aktualizowana co 5 minut.
 
 \subsubsection{Fortinet FortiWeb}
 Fortinet FortiWeb \cite{fortiweb} to rozwiązanie typu WAF oferowane przez sprzęt sieciowy firmy Fortinet. FortiWeb oferuje m.in.:
 \begin{itemize}
 \item do 20 Gbps przepustowości,
 \item wykrywanie skorelowanych zagrożeń przy pomocy skanowania behawioralnego,
-\item zaawansowana protekcja przez integrację z innymi produktami firmy Fortinet,
+\item zaawansowana protekcja przez integrację z~innymi produktami firmy Fortinet,
 \item zaawansowane narzędzia do minimalizacji fałszywych alarmów,
-\item integracja z narzędziami firm trzecich,
+\item integracja z~narzędziami firm trzecich,
 \item wirtualne łatki.
 \end{itemize}
 
-Zagrożenia są wykrywane na podstawie skorelowanych danych z następujących elementów systemu:
+Zagrożenia są wykrywane na podstawie skorelowanych danych z~następujących elementów systemu:
 \begin{itemize}
 \item reputacja IP,
 \item ochrona przed DDoS,
@@ -504,27 +507,27 @@ Zagrożenia są wykrywane na podstawie skorelowanych danych z następujących el
 \end{itemize}
 
 \subsection{Rozwiązania chmurowe}
-Dostawcy rozwiązań chmurowych również w swojej ofercie mają Web Application Firewall w modelu SaaS (\textit{Software as a Service}). Często moduły te są zintegrowane z innymi usługami, np. Content Delivery Network. W odróżnieniu od sprzętu fizycznego, WAF jako usługa jest łatwy w implementacji oraz oferuje korzystny model płatności, np.~rozliczanie za liczbę reguł lub ilość danych.
+Dostawcy rozwiązań chmurowych również mają w~swojej ofercie Web Application Firewall w~modelu SaaS (\textit{Software as a~Service}). Często moduły te są zintegrowane z~innymi usługami, np. Content Delivery Network. W~odróżnieniu od sprzętu fizycznego, WAF jako usługa jest łatwy w~implementacji oraz oferuje korzystny model płatności, np.~rozliczanie za liczbę reguł lub ilość danych.
 \subsubsection{Amazon Web Services WAF}
-AWS WAF \cite{awswaf} to usługa oferowana w ramach Amazon Web Services \footnote{\url{https://aws.amazon.com}}. Pozwala na filtrowanie ruchu na podstawie stworzonych reguł, które mogą zawierać: adresy IP, nagłówki HTTP i ciągi znaków URI. Konfiguracja systemu jest możliwa przy pomocy interfejsów programistycznych, co pozwala na automatyzację mechanizmów wdrażania modelu bezpieczeństwa na podstawie zdefiniowanych przez programistów reguł. Usługa jest zintegrowana z CloudFront i Application Load Balancer. CloudFront to system CDN, który umożliwia geograficzne rozproszenie plików statycznych, co znacznie skraca czas ładowania dla użytkownika końcowego. Application Load Balancer oferuje rozkładanie obciążenia w ruchu HTTP między serwerami aplikacyjnymi, dzięki temu konfiguracja WAF abstrahuje od warstwy serwerów, które są odbiorcami ruchu. AWS WAF oferuje elastyczny model płatności, w którym właściciel płaci za liczbę posiadanych reguł i liczbę żądań, które zostały przesłane przez system.
+AWS WAF \cite{awswaf} to usługa oferowana w~ramach Amazon Web Services \footnote{\url{https://aws.amazon.com}}. Pozwala na filtrowanie ruchu na podstawie stworzonych reguł, które mogą zawierać: adresy IP, nagłówki HTTP i~ciągi znaków URI. Konfiguracja systemu jest możliwa przy pomocy interfejsów programistycznych, co pozwala na automatyzację mechanizmów wdrażania modelu bezpieczeństwa na podstawie zdefiniowanych przez programistów reguł. Usługa jest zintegrowana z~CloudFront i~Application Load Balancer. CloudFront to system CDN, który umożliwia geograficzne rozproszenie plików statycznych, co znacznie skraca czas ładowania dla użytkownika końcowego. Application Load Balancer oferuje rozkładanie obciążenia w~ruchu HTTP między serwerami aplikacyjnymi, dzięki temu konfiguracja WAF abstrahuje od warstwy serwerów, które są odbiorcami ruchu. AWS WAF oferuje elastyczny model płatności, w~którym właściciel płaci za liczbę posiadanych reguł i~liczbę żądań, które zostały przesłane przez system.
 
-Na uwagę zasługuje fakt, że CloudFront jest często wykorzystywany przez aplikacje internetowe, które nie są w pełni utrzymywane w infrastrukturze Amazon Web Services. Integracja mechanizmów WAF nie wymaga pełnej migracji do publicznej chmury obliczeniowej.
+Na uwagę zasługuje fakt, że CloudFront jest często wykorzystywany przez aplikacje internetowe, które nie są w~pełni utrzymywane w~infrastrukturze Amazon Web Services. Integracja mechanizmów WAF nie wymaga pełnej migracji do publicznej chmury obliczeniowej.
 
-Amazon dodatkowo dostarcza szablon z gotowymi regułami OWASP 10 \footnote{\url{https://s3.us-east-2.amazonaws.com/awswaf-owasp/owasp_10_base.yml}}. Szablon ten zawiera reguły blokujące:
+Amazon dodatkowo dostarcza szablon z~gotowymi regułami OWASP 10 \footnote{\url{https://s3.us-east-2.amazonaws.com/awswaf-owasp/owasp_10_base.yml}}. Szablon ten zawiera reguły blokujące:
 \begin{itemize}
-\item ruch ze źródeł o złej reputacji,
-\item ataki związane z przeglądaniem katalogów lub inkluzją plików,
-\item ataki korzystające z wykradzionych tokenów JWT lub identyfikatorów sesji,
+\item ruch ze źródeł o~złej reputacji,
+\item ataki związane z~przeglądaniem katalogów lub inkluzją plików,
+\item ataki korzystające z~wykradzionych tokenów JWT lub identyfikatorów sesji,
 \item CSRF,
 \item XSS,
 \item iniekcje kodu SQL,
 \item próby wykorzystania błędnej konfiguracji serwerów WWW lub PHP.
 \end{itemize}
-Szablon korzysta z definicji CloudFormation, co pozwala na łatwe skonfigurowanie ww. reguł w sposób automatyczny w ramach własnej wirtualnej chmury prywatnej.
+Szablon korzysta z~definicji CloudFormation, co pozwala na łatwe skonfigurowanie ww. reguł w~sposób automatyczny w~ramach własnej wirtualnej chmury prywatnej.
 
 
 \subsubsection{Cloudflare Cloud Web Application Firewall}
-Cloud Web Application Firewall to usługa oferowana w ramach Cloudflare CDN, usługi podobnej do CloudFront. Oferowany mechanizm w znaczącym stopniu różni się od pozostałych tego typu usług. Zestaw reguł jest utrzymywany przez inżynierów bezpieczeństwa pracujących dla Cloudflare. W przypadku gdy pojawia się nowa podatność, a inżynierowie stwierdzą zagrożenie znacznej części użytkowników, reguła jest aplikowana dla całego systemu.
+Cloud Web Application Firewall to usługa oferowana w~ramach Cloudflare CDN, usługi podobnej do CloudFront. Oferowany mechanizm w~znaczącym stopniu różni się od pozostałych tego typu usług. Zestaw reguł jest utrzymywany przez inżynierów bezpieczeństwa pracujących dla Cloudflare. W~przypadku gdy pojawia się nowa podatność, a~inżynierowie stwierdzą zagrożenie znacznej części użytkowników, reguła jest aplikowana dla całego systemu.
 
 \begin{figure}[h]
 \centering
@@ -534,28 +537,28 @@ Cloud Web Application Firewall to usługa oferowana w ramach Cloudflare CDN, us�
 \label{fig:cloudflare}
 \end{figure}
 
-Według dostawcy, zaledwie 2\% \footnote{stan na 14.06.2017 r.} zdarzeń blokowanych przez WAF powodują reguły zdefiniowane bezpośrednio przez użytkowników, natomiast 86\% to reguły zdefiniowane przez inżynierów Cloudflare.
+Według dostawcy, zaledwie 2\% \footnote{stan na 14.06.2017 r.} zdarzeń blokowanych przez WAF powodują reguły zdefiniowane bezpośrednio przez użytkowników, natomiast 86\% to reguły zdefiniowane przez inżynierów Cloudflare. Pozostałe 12\% to reguły zdefiniowane przez OWASP.
 
-Dodatkowym elementem systemu jest ,,inteligencja zbiorowa''. Kiedy użytkownik zdefiniuje własną regułę, system analizuje czy ma ona zastosowanie dla innych domen utrzymywanych przez Cloudflare. Jeżeli tak jest, to reguła zostaje zastosowana w całym systemie.
+Dodatkowym elementem systemu jest ,,inteligencja zbiorowa''. Kiedy użytkownik zdefiniuje własną regułę, system analizuje czy ma ona zastosowanie dla innych domen utrzymywanych przez Cloudflare. Jeżeli tak jest, to reguła zostaje zastosowana w~całym systemie.
 
 
 %\section{Intrusion Prevention System}
 
-\chapter{Implementacja systemu}
-W ramach niniejszej pracy stworzono narzędzie pozwalające na automatyczną weryfikację konfiguracji rozwiązań typu Web Application Firewall przez przeprowadzenie serii scenariuszy komunikacji HTTP i analizę odpowiedzi serwerów internetowych. Narzędzie wymagało zaprojektowanie języka formalnego, który służy do opisu komunikacji z serwerem. 
+\chapter{Implementacja}
+ W~ramach niniejszej pracy stworzono narzędzie pozwalające na automatyczną weryfikację konfiguracji rozwiązań typu Web Application Firewall przez przeprowadzenie serii scenariuszy komunikacji HTTP i~analizę odpowiedzi serwerów internetowych. Narzędzie wymagało zaprojektowanie języka formalnego, który służy do opisu komunikacji z~serwerem. 
 
-\section{Interpretery i biblioteki}
-Do implementacji systemu wykorzystano język skryptowy Python i szereg bibliotek, które ułatwiły zarówno komunikację z użytkownikiem jak i przeprowadzenie komunikacji z serwerem.
+\section{Interpretery i~biblioteki}
+Do implementacji systemu wykorzystano język skryptowy Python i~szereg bibliotek, które ułatwiły zarówno komunikację z~użytkownikiem jak i~przeprowadzenie komunikacji z~serwerem.
 
 \subsection{Python}
-System został napisany w języku Python 3.6 \footnote{https://python.org/}. Jest to wieloparadygmatowy język interpretowany, stworzony w roku 1991 przez Guido van Rossuma w Centrum Matematyki i Informatyki w Amsterdamie.
+System został napisany w~języku Python 3.6 \footnote{https://python.org/}. Jest to wieloparadygmatowy język interpretowany, stworzony w~roku 1991 przez Guido van Rossuma w~Centrum Matematyki i~Informatyki w~Amsterdamie.
 
-Główny interpreter języka -- CPython został zaimplementowany w języku C i jest dostępny na wielu platformach, jednakże stworzone w ramach pracy narzędzie zostało przetestowane wyłącznie na systemach z rodziny GNU/Linux.
+Główny interpreter języka -- CPython został zaimplementowany w~języku C i~jest dostępny na wielu platformach, jednakże stworzone w~ramach pracy narzędzie zostało przetestowane wyłącznie na systemach z~rodziny GNU/Linux.
 
-Język ten został wybrany ze względu na możliwość stosowania dowolnych paradygmatów programowania i dynamiczne typowanie. Narzędzie dokonuje wielu operacji na tekście i plikach, których realizacja we wspomnianym języku jest bardzo łatwa i zajmuje niewiele linii kodu. Te cechy Pythona znacznie skróciły czas potrzebny na implementację systemu. Dodatkową zaletą jest obecność interpretera CPython domyślnie po instalacji wielu dystrybucji systemu GNU/Linux.
+Język ten został wybrany ze względu na możliwość stosowania dowolnych paradygmatów programowania i~dynamiczne typowanie. Narzędzie dokonuje wielu operacji na tekście i~plikach, których realizacja we wspomnianym języku jest bardzo łatwa i~zajmuje niewiele linii kodu. Te cechy Pythona znacznie skróciły czas potrzebny na implementację systemu. Dodatkową zaletą jest obecność interpretera CPython domyślnie po instalacji wielu dystrybucji systemu GNU/Linux.
 
 \subsection{Biblioteka \textit{requests}}
-Komunikacja z serwerami przy pomocy protokołu HTTP nie jest łatwa do osiągnięcia w większości języków programowania. Wbudowane mechanizmy są zazwyczaj bardzo niskopoziomowe, nie zawierają wbudowanych zabezpieczeń i bardzo łatwo jest popełnić trudne w wykryciu błędy. W przypadku biblioteki standardowej dostępnej w języku Python --- \textit{urllib} --- programista musi samodzielnie dbać o enkodowanie żądań, definiowanie odpowiednich nagłówków i obsługę błędów. Proste żądanie HTTP wymaga wielu kroków, co znacznie zaciemnia kod (przykład \ref{urllib}).
+Komunikacja z~serwerami przy pomocy protokołu HTTP nie jest łatwa do osiągnięcia w~większości języków programowania. Wbudowane mechanizmy są zazwyczaj bardzo niskopoziomowe, nie zawierają wbudowanych zabezpieczeń i~bardzo łatwo jest popełnić trudne w~wykryciu błędy. W~przypadku biblioteki standardowej dostępnej w~języku Python --- \textit{urllib} --- programista musi samodzielnie dbać o~kodowanie żądań, definiowanie odpowiednich nagłówków i~obsługę błędów. Proste żądanie HTTP wymaga wielu kroków, co znacznie zaciemnia kod (przykład \ref{urllib}).
 
 \begin{lstlisting}[language=python,frame=single,caption=Wykorzystanie biblioteki urllib,label=urllib,numbers=left]
 import urllib.parse
@@ -571,7 +574,7 @@ response = urllib.request.urlopen(req)
 result = response.read()
 \end{lstlisting}
 
-Z uwagi na powyższe, zdecydowano się na użycie zewnętrznej biblioteki \textit{requests} \footnote{\url{http://docs.python-requests.org/en/master/}}. Celem tej biblioteki jest dostarczenie interfejsu pozwalającego na przeprowadzanie żądań HTTP na odpowiednim poziomie abstrakcji. Kod z przykładu \ref{urllib} dzięki temu można skrócić do następującej formy:
+ Z~uwagi na powyższe, zdecydowano się na użycie zewnętrznej biblioteki \textit{requests}\footnote{\url{http://docs.python-requests.org/en/master/}}. Celem tej biblioteki jest dostarczenie interfejsu pozwalającego na przeprowadzanie żądań HTTP na odpowiednim poziomie abstrakcji. Kod z~przykładu \ref{urllib} dzięki temu można skrócić do następującej formy:
 \begin{lstlisting}[language=python,frame=single,label=req1,numbers=left]
 import requests
 url = 'http://strona-przykladowa.com/rejestracja.php'
@@ -581,48 +584,48 @@ res = requests.get(url, data=val)
 \end{lstlisting}
 
 \subsection{Biblioteka \textit{pyyaml}}
-YAML \footnote{\url{http://www.yaml.org/}} to język formalny, który można wykorzystać do reprezentowania różnych, ustrukturalizowanych danych. Pierwsza wersja została zaproponowana w 2001 roku przez Clarka Evansa. Według specyfikacji \cite{yamlspec} najważniejsze cele języka to: 
+YAML\footnote{\url{http://www.yaml.org/}} to język formalny, który można wykorzystać do reprezentowania różnych, ustrukturalizowanych danych. Pierwsza wersja została zaproponowana w~2001 roku przez Clarka Evansa. Według specyfikacji \cite{yamlspec} najważniejsze cele języka to: 
 \begin{itemize}
 \item czytelność,
 \item przenośność między językami programowania,
-\item odwzorowanie struktur danych w językach programowania,
-\item łatwość implementacji w narzędziach do przetwarzania tekstu,
+\item odwzorowanie struktur danych w~językach programowania,
+\item łatwość implementacji w~narzędziach do przetwarzania tekstu,
 \item przetwarzanie przy pomocy jednego przejścia,
 \item rozszerzalność,
 \item łatwość użytkowania.
 \end{itemize}
 
-Elementy struktur danych oddzielone są znakami nowej linii, a zagnieżdżenie odbywa się przy pomocy wcięć. Podstawowe struktury danych to: listy, słowniki i skalary.
+Elementy struktur danych oddzielone są znakami nowej linii, a~zagnieżdżenie odbywa się przy pomocy wcięć. Podstawowe struktury danych to: listy, słowniki i~skalary.
 
-W przypadku języka Python dostępna jest biblioteka PyYAML \footnote{\url{http://pyyaml.org/}}, która dokonuje konwersji z postaci YAML na struktury danych wbudowane w język Python. Biblioteka ta została wykorzysta w projekcie do podstawowego tłumaczenia języka definicji ataków na obiekty zrozumiałe dla programu.
+ W~przypadku języka Python dostępna jest biblioteka PyYAML\footnote{\url{http://pyyaml.org/}}, która dokonuje konwersji z~postaci YAML na struktury danych wbudowane w~język Python. Biblioteka ta została wykorzysta w~projekcie do podstawowego tłumaczenia języka definicji ataków na obiekty zrozumiałe dla programu.
 
-\section{Schematy przepływu informacji i zależności}
-Zaimplementowane narzędzie ma służyć do automatycznego testowania aplikacji zabezpieczonej mechanizmem Web Application Firewall. Administrator dostarcza zbiór plików opisujących przebieg ataku na aplikacje w formie zgodnej ze zdefiniowanym językiem, a następnie uruchamia narzędzie i oczekuje na raport końcowy.
+\section{Schematy przepływu informacji i~zależności}
+Zaimplementowane narzędzie ma służyć do automatycznego testowania zabezpieczenia aplikacji poprzez Web Application Firewall. Administrator dostarcza zbiór plików opisujących przebieg ataku na aplikacje w~formie zgodnej ze zdefiniowanym językiem, a~następnie uruchamia narzędzie i~oczekuje na raport końcowy.
 
 \begin{figure}
 \centering
 \centerline{\includegraphics{schemat.pdf}}
-\caption{diagram sekwencji w systemie}
+\caption{diagram sekwencji w~systemie}
 \label{fig:przeplyw}
 \end{figure}
 
 
-Przebieg działania programu opisuje rysunek \ref{fig:przeplyw}. Administrator wydaje polecenie uruchomienia narzędzie testującego i czeka na zakończenie działania programu. Pierwszy atak składa się z dwóch żądań. Pierwsze żądanie (przygotowanie) zostaje wysłane do WAF, a ten przekazuje je aplikacji. Odpowiedź aplikacji zostaje przesłana do testera, który może np. zapisać otrzymane ciasteczko i wykorzystać je przy kolejnym żądaniu. Żądanie 2 to już właściwy atak, który po przekazaniu do WAF zostaje zablokowany (brak komunikacji z aplikacją), a negatywna odpowiedź zostaje wysłana klientowi. Drugi atak jest podobny, składa się z dwóch żądań, ale drugie zapytanie zostaje przekazane do aplikacji, która odpowiada (potencjalnie ujawniając informacje wrażliwe). Po otrzymaniu odpowiedzi od WAF, sekwencja kończy się a administrator otrzymuje raport o przebiegu testu.
+Przebieg działania prototypu opisuje rysunek \ref{fig:przeplyw}. Administrator wydaje polecenie uruchomienia narzędzie testującego i~czeka na zakończenie działania programu. Pierwszy atak składa się z~dwóch żądań. Pierwsze żądanie (przygotowanie) zostaje wysłane do WAF, a~ten przekazuje je aplikacji. Odpowiedź aplikacji zostaje przesłana do testera, który może np. zapisać otrzymane ciasteczko i~wykorzystać je przy kolejnym żądaniu. Żądanie 2 to już właściwy atak, który po przekazaniu do WAF zostaje zablokowany (brak komunikacji z~aplikacją), a~negatywna odpowiedź zostaje wysłana klientowi. Drugi atak jest podobny, składa się z~dwóch żądań, ale drugie zapytanie zostaje przekazane do aplikacji, która odpowiada (potencjalnie ujawniając informacje wrażliwe). Po otrzymaniu odpowiedzi od WAF, sekwencja kończy się a~administrator otrzymuje raport o~przebiegu testu.
 
-Aplikacja składa się z trzech modułów. Pierwszy moduł opisany jako ,,CLI'' odpowiada za komunikację z użytkownikiem przez interfejs tekstowy i kontrolę przepływu programu. Odbiera parametry przekazane przez administratora przy pomocy linii poleceń i ustawia przebieg testu. Przeszukuje i filtruje listę dostępnych ataków i ładuje definicje do pamięci, by następnie przekazać je do modułu konwertera.
+Aplikacja składa się z~trzech modułów. Pierwszy moduł opisany jako ,,CLI'' odpowiada za komunikację z~użytkownikiem przez interfejs tekstowy i~kontrolę przepływu programu. Odbiera parametry przekazane przez administratora przy pomocy linii poleceń i~ustawia przebieg testu. Przeszukuje i~filtruje listę dostępnych ataków i~ładuje definicje do pamięci, by następnie przekazać je do modułu konwertera.
 
-Konwerter jest najważniejszym modułem, jego zadaniem jest tłumaczenie definicji z języka formalnego na obiekt żądania i obsługi odpowiedzi HTTP. Język dziedzinowy zdefiniowany na potrzeby narzędzia zawiera opis konwersacji z serwerem WWW. Na podstawie tego opisu konwerter przygotowuje obiekty, które zawierają metody odpowiedzialne za połączenie z serwerem, przekazanie odpowiednich parametrów w URI i ciele żądanie, załadowanie ciasteczek i obsługę odpowiedzi --- zapis danych, wyrażenia regularne na odpowiedzi, definicje sukcesu i porażki ataku.
-Kolejnym modułem jest wykonawca. Otrzymuje on obiekty ataku i wykonuje je (sekwencyjnie lub równolegle), aby na koniec zebrać rezultaty ataków i przygotować raport, który zostaje przekazany do do użytkownika.
+Konwerter jest najważniejszym modułem, jego zadaniem jest tłumaczenie definicji z~języka formalnego na obiekt żądania i~obsługi odpowiedzi HTTP. Język dziedzinowy zdefiniowany na potrzeby narzędzia zawiera opis konwersacji z~serwerem WWW. Na podstawie tego opisu konwerter przygotowuje obiekty, które zawierają metody odpowiedzialne za połączenie z~serwerem, przekazanie odpowiednich parametrów w~URI i~ciele żądanie, załadowanie ciasteczek i~obsługę odpowiedzi --- zapis danych, wyrażenia regularne na odpowiedzi, definicje sukcesu i~porażki ataku.
+Kolejnym modułem jest wykonawca. Otrzymuje on obiekty ataku i~wykonuje je (sekwencyjnie lub równolegle), aby na koniec zebrać rezultaty ataków i~przygotować raport, który zostaje przekazany do do użytkownika.
  
 \section{Opis języka definicji ataków} 
 Do opisu przebiegu ataków na aplikacje internetowe wykorzystano składnię języka YAML.
-Plik główny zawiera listę słowników, gdzie każdy element listy zawiera jedną składową konwersacji (żądanie i odpowiedź). Obiekt zawiera dwa elementy: $request$ i $answer$. System pozwala na definicję ataku składającego się z dowolnej liczby kolejnych żądań HTTP, ale przebieg ataku musi być sekwencyjny i liniowy.
+Plik główny zawiera listę słowników, gdzie każdy element listy zawiera jedną składową konwersacji (żądanie i~odpowiedź). Obiekt zawiera dwa elementy: $request$ i~$answer$. System pozwala na definicję ataku składającego się z~dowolnej liczby kolejnych żądań HTTP, ale przebieg ataku musi być sekwencyjny i~liniowy.
 
 Obiekt $request$ zawiera informacje odnośnie żądania HTTP jakie ma zostać wykonane do serwera. Znajdują się tam takie elementy jak: lokalizacja atakowanego pliku, metoda żądania, dane przekazane do serwera, ciasteczka, dodatkowe nagłówki.
 
-Obiekt $answer$ może zawierać podobiekt $success$ lub $failure$. Każdy z nich zawiera odpowiednio definicję sukcesu lub porażki ataku. Spełnienie kryteriów sukcesu powoduje przejście do kolejnego kroku (lub oznaczenie ataku jako przeprowadzonego pomyślnie). Definicja sukcesu/porażki odbywa się na podstawie kilku dostępnych filtrów: statusu HTTP, zawierania frazy w odpowiedzi, nagłówków, itp.
+Obiekt $answer$ może zawierać podobiekt $success$ lub $failure$. Każdy z~nich zawiera odpowiednio definicję sukcesu lub porażki ataku. Spełnienie kryteriów sukcesu powoduje przejście do kolejnego kroku (lub oznaczenie ataku jako przeprowadzonego pomyślnie). Definicja sukcesu/porażki odbywa się na podstawie kilku dostępnych filtrów: statusu HTTP, zawierania frazy w~odpowiedzi, nagłówków, itp.
 
-%Pełny opis języka został zamieszczony w dodatku \ref{opisjezyka}.
+%Pełny opis języka został zamieszczony w~dodatku \ref{opisjezyka}.
 
 \begin{lstlisting}[language=YAML,frame=single,label=def1,numbers=left,caption=przykład podstawowej definicji ataku]
 ---
@@ -636,28 +639,28 @@ Obiekt $answer$ może zawierać podobiekt $success$ lub $failure$. Każdy z nich
       content_contains: unknown column
 \end{lstlisting}
 
-Przykład \ref{def1} zawiera opis prostego ataku typu SQL Injection. Składa się z jednego żądania HTTP, którego celem jest plik $index.php$. Przy pomocy metody \textit{GET} zostają wysłane dane zawarte pod kluczem $data$. System automatycznie dokona konwersji parametrów na ciąg znaków zgodnych ze standardem właściwym dla URL. W przykładzie dla parametru $id$ przypisano ciąg znaków typowy dla ataków SQL Injection.
-Odpowiedź zawiera wyłącznie definicję powodzenia, która jest wnioskowana na podstawie zawierania frazy ,,\textit{unknown column}'' w ciele odpowiedzi serwera.
+Przykład \ref{def1} zawiera opis prostego ataku typu SQL Injection. Składa się z~jednego żądania HTTP, którego celem jest plik $index.php$. Przy pomocy metody \textit{GET} zostają wysłane dane zawarte pod kluczem $data$. System automatycznie dokona konwersji parametrów na ciąg znaków zgodnych ze standardem właściwym dla URL. W~przykładzie dla parametru $id$ przypisano ciąg znaków typowy dla ataków SQL Injection.
+Odpowiedź zawiera wyłącznie definicję powodzenia, która jest wnioskowana na podstawie zawierania frazy ,,\textit{unknown column}'' w~ciele odpowiedzi serwera.
 
 
 \chapter{Testy funkcjonalne}
 Po implementacji systemu dokonano testów funkcjonalnych, których celem było sprawdzenie narzędzia pod kątem spełnialności założeń. 
 
 \section{Środowisko testowe}
-Testy zostały wykonane na komputerze z zainstalowanym systemem Debian GNU/Linux z jądrem w wersji 4.12. Do separacji środowisk wykorzystano narzędzie Docker \footnote{\url{https://www.docker.com}}, która pozwala na tworzenie kontenerów aplikacyjnych. Kontenery te zawierają swój własny system plików, biblioteki i narzędzia wymagane przez system operacyjny. Nad izolacją procesów czuwał mechanizm \textit{cgroups} wbudowany w jądro systemu operacyjnego.
+Testy zostały wykonane na komputerze z~zainstalowanym systemem Debian GNU/Linux z~jądrem w~wersji 4.12. Do separacji środowisk wykorzystano narzędzie Docker\footnote{\url{https://www.docker.com}}, która pozwala na tworzenie kontenerów aplikacyjnych. Kontenery te zawierają swój własny system plików, biblioteki i~narzędzia wymagane przez system operacyjny. Nad izolacją procesów czuwał mechanizm \textit{cgroups} wbudowany w~jądro systemu operacyjnego.
 
-Jako serwer WWW wykorzystano \textit{nginx} \footnote{\url{https://nginx.org/en/}} w wersji 1.12. W przypadku testowania gotowego oprogramowania (takiego jak np.~Wordpress) wykorzystano zależności zdefiniowane przez opiekuna definicji kontenera Docker. Jako system zarządzania bazą danych posłużył MySQL \footnote{\url{https://mysql.com}} w wersji 5.7.
+Jako serwer WWW wykorzystano \textit{nginx}\footnote{\url{https://nginx.org/en/}} w~wersji 1.12. W~przypadku testowania gotowego oprogramowania (takiego jak np.~Wordpress) wykorzystano zależności zdefiniowane przez opiekuna definicji kontenera Docker. Jako system zarządzania bazą danych posłużył MySQL\footnote{\url{https://mysql.com}} w~wersji 5.7.
 
-Za Web Application Firewall posłużył ModSecurity 3.0 RC1 w trybie samodzielnym z aktywnym zbiorem reguł \textit{Core Rule Set 3.0.0-dev}.
+Za Web Application Firewall posłużył ModSecurity 3.0 RC1 w~trybie samodzielnym z~aktywnym zbiorem reguł \textit{Core Rule Set 3.0.0-dev}.
 
 
 \section{Przygotowane ataki}
-W celu sprawdzenia poprawności implementacji narzędzia i zaprojektowanego procesu, przygotowano definicje trzech ataków na różne systemy zarządzania treścią. 
+ W~celu sprawdzenia poprawności implementacji narzędzia i~zaprojektowanego procesu, przygotowano definicje trzech ataków na różne systemy zarządzania treścią. 
 
 \subsection*{Atak 1 --- wstrzyknięcie kodu SQL}
-W tym celu przygotowano prostą aplikację w języku PHP (przykład \ref{testkod1}), która przyjmuje nazwę użytkownika i hasło, a następnie weryfikuje skrót SHA1 z bazą danych MySQL. Jeżeli aplikacja zwróci kod $200$ to wprowadzone dane były poprawne, w przeciwnym razie zwrócony zostanie kod 403.
+ W~tym celu przygotowano prostą aplikację w~języku PHP (przykład \ref{testkod1}), która przyjmuje nazwę użytkownika i~hasło, a~następnie weryfikuje skrót SHA1 z~bazą danych MySQL. Jeżeli aplikacja zwróci kod $200$ to wprowadzone dane były poprawne, w~przeciwnym razie zwrócony zostanie kod 403.
 
-W aplikacji celowo wprowadzono podatność, która umożliwiała zdalne wykonanie kodu SQL i modyfikację zapytania, które odpowiadało za uwierzytelnienie. Dane wprowadzane przez użytkownika nie były weryfikowane, a jedynie bezpośrednio osadzane w treści kodu.
+ W~aplikacji celowo wprowadzono podatność, która umożliwiała zdalne wykonanie kodu SQL i~modyfikację zapytania, które odpowiadało za uwierzytelnienie. Dane wprowadzane przez użytkownika nie były weryfikowane, a~jedynie bezpośrednio osadzane w~treści kodu.
 
 Atak polega na wykorzystaniu iniekcji kodu do uwierzytelnienia jako użytkownik ,,admin'' bez wprowadzania jego hasła.
 
@@ -691,7 +694,7 @@ mysqli_close($conn);
 ?>
 \end{lstlisting}
 
-W tym celu przygotowano kontener z serwerem WWW i PHP (w trybie FPM) oraz bazę danych MySQL, która zawierała dane potrzebne do przeprowadzenia testu.
+ W~tym celu przygotowano kontener z~serwerem WWW i~PHP (w trybie FastCGI) oraz bazę danych MySQL, która zawierała dane potrzebne do przeprowadzenia testu.
 
 \begin{lstlisting}[frame=single,caption=zawartość testowej bazy danych]
 mysql> SELECT * FROM users;
@@ -704,9 +707,9 @@ mysql> SELECT * FROM users;
 \end{lstlisting}
 
 \subsection*{Atak 2 --- CVE-2015-3440 na system Wordpress}
-Podatność została wykryta i opublikowana w kwietniu 2015 roku i dotyczy wersji systemu Wordpress poniżej 4.2.1. Polega na permanentnym ataku XSS przez wstrzyknięcie złośliwego kodu przy pomocy modułu komentarzy. Atakujący musi mieć możliwość dodawania komentarzy do wpisu. Standardowy limit pola TEXT w bazie danych MySQL to 64 kilobajty. W przypadku gdy komentarz przekracza ten limit --- zostanie skrócony do maksymalnej długości. 
+Podatność została wykryta i~opublikowana w~kwietniu 2015 roku i~dotyczy wersji systemu Wordpress poniżej 4.2.1. Polega na permanentnym ataku XSS przez wstrzyknięcie złośliwego kodu przy pomocy modułu komentarzy. Atakujący musi mieć możliwość dodawania komentarzy do wpisu. Standardowy limit pola TEXT w~bazie danych MySQL to 64 kilobajty. W~przypadku gdy komentarz przekracza ten limit --- zostanie skrócony do maksymalnej długości. 
 
-Takie skrócenie spowoduje wyświetlenie zdeformowanego kodu HTML, który może zawierać złośliwy kod JavaScript umieszczony w dozwolonych znacznikach. Kod nie zostanie wykonany w panelu administracyjnym, ale wyświetlenie komentarza przez osobę o uprawnieniach administratora może spowodować wykonanie akcji z podwyższonymi uprawnieniami.
+Takie skrócenie spowoduje wyświetlenie zdeformowanego kodu HTML, który może zawierać złośliwy kod JavaScript umieszczony w~dozwolonych znacznikach. Kod nie zostanie wykonany w~panelu administracyjnym, ale wyświetlenie komentarza przez osobę o~uprawnieniach administratora może spowodować wykonanie akcji z~podwyższonymi uprawnieniami.
 
 
 \begin{lstlisting}[language=HTML,frame=single,label=testkod2,numbers=left,caption=komentarz wykorzystujący podatność CVE-2015-3440 zamieszczony przez autora]
@@ -715,7 +718,7 @@ Takie skrócenie spowoduje wyświetlenie zdeformowanego kodu HTML, który może 
 
 
 \subsection*{Atak 3 --- CVE-2017-8103 na system MyBB}
-Podatność wykryta w kwietniu 2017 roku, dotyczy wersji MyBB poniżej 1.8.11. Skrypt forum dyskusyjnego używa znaczników $BBCode$ do bezpiecznej podmiany ostylowania tekstu na odpowiedni kod w języku HTML. Błąd został wykryty w znaczniku $email$ i pozwalał na dodatkowe wstrzyknięcie kodu JavaScript osadzonego w zdarzeniu $onMouseOver$. Gdy użytkownik ustawi kursor myszy nad spreparowanym tekstem --- kod zostanie wykonany po stronie klienta. Jest to kolejny przykład permanentnego XSS.
+Podatność wykryta w~kwietniu 2017 roku, dotyczy wersji MyBB poniżej 1.8.11. Skrypt forum dyskusyjnego używa znaczników $BBCode$ do bezpiecznej podmiany ostylowania tekstu na odpowiedni kod w~języku HTML. Błąd został wykryty w~znaczniku $email$ i~pozwalał na dodatkowe wstrzyknięcie kodu JavaScript osadzonego w~zdarzeniu $onMouseOver$. Gdy użytkownik ustawi kursor myszy nad spreparowanym tekstem --- kod zostanie wykonany po stronie klienta. Jest to kolejny przykład permanentnego XSS.
 
 \begin{lstlisting}[language=HTML,frame=single,label=testkod3,numbers=left,caption=znacznik wykorzystujący podatność CVE-2017-8103 zamieszczony przez autora]
 [email=2"onmouseover="alert(document.location)]tekst[/email]
@@ -723,7 +726,7 @@ Podatność wykryta w kwietniu 2017 roku, dotyczy wersji MyBB poniżej 1.8.11. S
 
 
 \section{Przebieg testów}
-Na podstawie wspomnianych wcześniej opisów przygotowano definicje ataków zgodne z językiem domenowym dla narzędzia testującego. Następnie uruchomiono odpowiednie kontenery Docker z aplikacjami. Każdą aplikację przetestowano w dwóch wariantach: z pominięciem WAF i z aktywną ochroną przy pomocy ModSecurity. Dodatkowo odczytano poziom zagrożenia wg WAF i reguły, które zostały uruchomione. Poniżej zamieszczono wynik testów wraz z dodatkowymi informacjami.
+Na podstawie wspomnianych wcześniej opisów przygotowano definicje ataków zgodne z~językiem domenowym dla narzędzia testującego. Następnie uruchomiono odpowiednie kontenery Docker z~aplikacjami. Każdą aplikację przetestowano w~dwóch wariantach: z~pominięciem WAF i~z aktywną ochroną przy pomocy ModSecurity. Dodatkowo odczytano poziom zagrożenia wg WAF i~reguły, które zostały uruchomione. Poniżej zamieszczono wynik testów wraz z~dodatkowymi informacjami.
 \FloatBarrier
 \subsection*{Atak 1}
 
@@ -742,7 +745,7 @@ Aktywny WAF & Brak wykrytych podatności \\
 \end{figure}
 \FloatBarrier
 
-W przypadku braku ochrony przy pomocy mechanizmu WAF --- atak został przeprowadzony pomyślnie i wykorzystał podatność do otrzymania odpowiedzi z kodem 200 (HTTP OK). Wynik anomalii CRS wg ModSecurity to: $40$.
+ W~przypadku braku ochrony przy pomocy mechanizmu WAF --- atak został przeprowadzony pomyślnie i~wykorzystał podatność do otrzymania odpowiedzi z~kodem 200 (HTTP OK). Wynik anomalii CRS wg ModSecurity to: $40$.
 
 Dopasowane reguły CRS to:
 \begin{itemize}
@@ -770,7 +773,7 @@ Aktywny WAF & Brak wykrytych podatności \\
 \end{tabular} 
 \end{figure}
 
-Podobnie jak w poprzednim przypadku, atak powiódł się tylko przy braku ochrony przez ModSecurity. Osiągnięty poziom anomalii wg CRS to 25.
+Podobnie jak w~poprzednim przypadku, atak powiódł się tylko przy braku ochrony przez ModSecurity. Osiągnięty poziom anomalii wg CRS to 25.
 
 Dopasowane reguły CRS to:
 \begin{itemize}
@@ -801,7 +804,7 @@ Aktywny WAF & Brak wykrytych podatności \\
 
 \end{figure}
 
-Trzeci test przeprowadzony na MyBB również wykazał podobne wyniki, ModSecurity w konfiguracji z CRS prawidłowo zablokowało próbę ataku. Osiągnięty wynik to 20.
+Trzeci test przeprowadzony na MyBB również wykazał podobne wyniki, ModSecurity w~konfiguracji z~CRS prawidłowo zablokowało próbę ataku. Osiągnięty wynik to 20.
 
 Dopasowane reguły CRS to:
 \begin{itemize}
@@ -815,25 +818,25 @@ Dopasowane reguły CRS to:
 
 \FloatBarrier
 \chapter{Zakończenie}
-Bezpieczeństwo aplikacji to bardzo istotny element budowy każdego biznesu opartego o usługi internetowe. Dbanie o poufność danych powierzonych przez użytkowników jest często krytyczne dla całej marki, ponieważ ujawnienie np.~numerów kart kredytowych stanowi nie tylko poważne zagrożenie utraty pieniędzy przez klientów, ale również utratę zaufania do produktu, często bezpowrotnie.
+Bezpieczeństwo aplikacji to bardzo istotny element budowy każdego biznesu opartego o~usługi internetowe. Dbanie o~poufność danych powierzonych przez użytkowników jest często krytyczne dla całej marki, ponieważ ujawnienie np.~numerów kart kredytowych stanowi nie tylko poważne zagrożenie utraty pieniędzy przez klientów, ale również utratę zaufania do produktu, często bezpowrotnie.
 
-Istnieje wiele rodzajów wektorów ataku, są one często pozornie nieszkodliwe. Nawet drobne zaniedbanie może spowodować w ostateczności utratę danych lub zatrzymanie usługi. Przy projektowaniu i implementacji aplikacji internetowych należy pamiętać, że bardzo często wykorzystywane są komponenty napisane przez osoby trzecie i nie mamy gwarancji, że są one bezpieczne i nie zostanie w nich wykryta luka. Należy tutaj pamiętać o aktualizacji zarówno komponentów oprogramowania jak i całego systemu operacyjnego.
+Istnieje wiele rodzajów wektorów ataku, są one często pozornie nieszkodliwe. Nawet drobne zaniedbanie może spowodować w~ostateczności utratę danych lub zatrzymanie usługi. Przy projektowaniu i~implementacji aplikacji internetowych należy pamiętać, że bardzo często wykorzystywane są komponenty napisane przez osoby trzecie i~nie mamy gwarancji, że są one bezpieczne i~nie zostanie w~nich wykryta luka. Należy tutaj pamiętać o~aktualizacji zarówno komponentów oprogramowania jak i~całego systemu operacyjnego.
 
-Usługi internetowe powinny mieć wdrożone procedury ciągłej ewaluacji bezpieczeństwa infrastruktury i oprogramowania. Pozwoli to na szybkie reagowanie w przypadku zagrożenia, co może być kluczowe dla bezpieczeństwa danych składowanych w systemie. Opublikowane exploity w postaci tzw. \textit{0day} mogły być wykorzystywane już znacznie wcześniej przez innych crackerów. Wdrożone procedury powinny zawierać również cykliczne przeprowadzanie testów penetracyjnych powierzonych zewnętrznym firmom. Powierzenie takich testów specjalistom z zakresu bezpieczeństwa znacznie zwiększa naszą pewność co do jakości infrastruktury i oprogramowania, a także poziomu świadomości bezpieczeństwa IT wśród pracowników. Należy jednak mieć na uwadze, że nawet wielokrotne testy penetracyjne nie dają gwarancji pewności, a jedynie zmniejszają prawdopodobieństwo ludzkiego błędu.
+Usługi internetowe powinny mieć wdrożone procedury ciągłej ewaluacji bezpieczeństwa infrastruktury i~oprogramowania. Pozwoli to na szybkie reagowanie w~przypadku zagrożenia, co może być kluczowe dla bezpieczeństwa danych składowanych w~systemie. Opublikowane exploity w~postaci tzw. \textit{0day} mogły być wykorzystywane już znacznie wcześniej przez innych crackerów. Wdrożone procedury powinny zawierać również cykliczne przeprowadzanie testów penetracyjnych powierzonych zewnętrznym firmom. Powierzenie takich testów specjalistom z~zakresu bezpieczeństwa znacznie zwiększa naszą pewność co do jakości infrastruktury i~oprogramowania, a~także poziomu świadomości bezpieczeństwa IT wśród pracowników. Należy jednak mieć na uwadze, że nawet wielokrotne testy penetracyjne nie dają gwarancji pewności, a~jedynie zmniejszają prawdopodobieństwo ludzkiego błędu.
 
-Oprogramowanie typu \textit{Web Application Firewall} stanowi jedynie dodatkową zaporę, która chroni system przed atakiem. Może ono być częścią większego systemu wykrywania intruzów, a także monitorować ruch wychodzący. Taki dodatkowy element filtracji zapytań jest szczególnie ważny, gdy system składa się z elementów, w których nie mamy możliwości edytowania kodu źródłowego (brak odpowiednich zasobów ludzkich, niewolna licencja). Odpowiednia łatka może pojawić się znacznie szybciej niż oficjalna aktualizacja producenta, a do tego czasu nasz system pozostawałby narażony na zagrożenia. Dodatkowe reguły generyczne mogą chronić nas nawet przed nieopublikowanymi podatnościami, co stanowi dodatkową korzyść przemawiającą za wykorzystaniem takiego rozwiązania.
+Oprogramowanie typu \textit{Web Application Firewall} stanowi jedynie dodatkową zaporę, która chroni system przed atakiem. Może ono być częścią większego systemu wykrywania intruzów, a~także monitorować ruch wychodzący. Taki dodatkowy element filtracji zapytań jest szczególnie ważny, gdy system składa się z~elementów, w~których nie mamy możliwości edytowania kodu źródłowego (brak odpowiednich zasobów ludzkich, niewolna licencja). Odpowiednia łatka może pojawić się znacznie szybciej niż oficjalna aktualizacja producenta, a~do tego czasu nasz system pozostawałby narażony na zagrożenia. Dodatkowe reguły generyczne mogą chronić nas nawet przed nieopublikowanymi podatnościami, co stanowi dodatkową korzyść przemawiającą za wykorzystaniem takiego rozwiązania.
 
-Nieprawidłowe zrozumienie czym jest i jak działa WAF może prowadzić do złudnego poczucia bezpieczeństwa i np.~zlekceważenia podstawowych jej zasad. W każdym systemie najważniejszym elementem jest docelowa aplikacja i priorytetem powinno być dbanie o jakość kodu i zgodność ze standardami, a WAF czy IDS (Intrusion Detection System) powinny być wyłącznie dodatkami, których mechanizmy powinny zadziałać dopiero w ostateczności. Poleganie wyłącznie na wirtualnych łatkach i heurystycznych regułach blokowania nie jest wystarczającą ochroną przed atakami sieciowymi.
+Nieprawidłowe zrozumienie czym jest i~jak działa WAF może prowadzić do złudnego poczucia bezpieczeństwa i~np.~zlekceważenia podstawowych jej zasad. W~każdym systemie najważniejszym elementem jest docelowa aplikacja i~priorytetem powinno być dbanie o~jakość kodu i~zgodność ze standardami, a~WAF czy IDS (Intrusion Detection System) powinny być wyłącznie dodatkami, których mechanizmy powinny zadziałać dopiero w~ostateczności. Poleganie wyłącznie na wirtualnych łatkach i~heurystycznych regułach blokowania nie jest wystarczającą ochroną przed atakami sieciowymi.
 
-Na szczególną uwagę zasługują rozwiązania chmurowe, które bardzo szybko zdobywają popularność wśród użytkowników Internetu. Rozwiązania WAF wbudowane w systemy CDN to bardzo wygodne i skuteczne narzędzia, które nie wymagają dodatkowych zasobów serwerowych, a utrzymanie jest powierzone dostawcy usługi. Elementem odstraszającym może być skomplikowany cennik, który często zależy od wielu czynników: liczby reguł, ruchu sieciowego czy liczby żądań. Korzyść wynikająca z inteligentnych reguł aplikowanych automatycznie przez dostawcę może być jednak większa niż koszt samej usługi.
+Na szczególną uwagę zasługują rozwiązania chmurowe, które bardzo szybko zdobywają popularność wśród użytkowników Internetu. Rozwiązania WAF wbudowane w~systemy CDN to bardzo wygodne i~skuteczne narzędzia, które nie wymagają dodatkowych zasobów serwerowych, a~utrzymanie jest powierzone dostawcy usługi. Elementem odstraszającym może być skomplikowany cennik, który często zależy od wielu czynników: liczby reguł, ruchu sieciowego czy liczby żądań. Korzyść wynikająca z~inteligentnych reguł aplikowanych automatycznie przez dostawcę może być jednak większa niż koszt samej usługi.
 
-Rozwiązania dedykowane, wbudowane w urządzenia klasy Unified Threat Management, mają bardzo wąskie zastosowanie i wymagają ingerencji w infrastrukturę sprzętową usługi, co często jest niemożliwe. Dodatkowo bardzo wysokie ceny licencji sprawiają, że są to produkty przeznaczone dla dużych korporacji, które utrzymują często własne centra przetwarzania danych. Sprzęt klasy \textit{enterprise} połączony z profesjonalnym wsparciem technicznym i gwarancjami producenta może stanowić bardzo ważny element ochrony infrastruktury, w którym WAF jest tylko jednym z elementów składowych.
+Rozwiązania dedykowane, wbudowane w~urządzenia klasy Unified Threat Management, mają bardzo wąskie zastosowanie i~wymagają ingerencji w~infrastrukturę sprzętową usługi, co często jest niemożliwe. Dodatkowo bardzo wysokie ceny licencji sprawiają, że są to produkty przeznaczone dla dużych korporacji, które utrzymują często własne centra przetwarzania danych. Sprzęt klasy \textit{enterprise} połączony z~profesjonalnym wsparciem technicznym i~gwarancjami producenta może stanowić bardzo ważny element ochrony infrastruktury, w~którym WAF jest tylko jednym z~elementów składowych.
 
-Stworzone narzędzie może być szczególne przydatne administratorom zarządzającym wieloma serwisami internetowymi, które np.~działają w oparciu o ten sam system zarządzania treścią. Przeprowadzając taki test można w prosty sposób zweryfikować czy odpowiednia łatka została zaaplikowana na wszystkich serwerach. Odpowiednio szybko przygotowana definicja ataku wykorzystująca nowe podatności może również posłużyć do weryfikacji czy i które z serwerów wymagają aktualizacji w przypadku pojawienia się nowego zagrożenia. Dokonując ewaluacji konfiguracji WAF administrator zyskuje pewność, że odpowiednie zmiany zostały dokonane na wszystkich serwerach i nie musi dodatkowo weryfikować tego ręcznie.
+Stworzone narzędzie może być szczególne przydatne administratorom zarządzającym wieloma serwisami internetowymi, które np.~działają w~oparciu o~ten sam system zarządzania treścią. Przeprowadzając taki test można w~prosty sposób zweryfikować czy odpowiednia łatka została zaaplikowana na wszystkich serwerach. Odpowiednio szybko przygotowana definicja ataku wykorzystująca nowe podatności może również posłużyć do weryfikacji czy i~które z~serwerów wymagają aktualizacji w~przypadku pojawienia się nowego zagrożenia. Dokonując ewaluacji konfiguracji WAF administrator zyskuje pewność, że odpowiednie zmiany zostały dokonane na wszystkich serwerach i~nie musi dodatkowo weryfikować tego ręcznie.
  
-Przygotowana w ramach niniejszej pracy dyplomowej baza definicji ataków jest tylko demonstracyjna, w przyszłości należałoby ją konsekwentnie rozszerzać o nowe wpisy, które odzwierciedlałyby odnajdywane podatności w popularnych oprogramowaniach. Prawdopodobnie w przyszłości zaprojektowany język może okazać się niewystarczający do opisania niektórych konwersacji HTTP, ale dzięki wykorzystaniu YAML i prostego opisu żądań i odpowiedzi, jego rozszerzenie nie powinno stanowić żadnego problemu.
+Przygotowana w~ramach niniejszej pracy dyplomowej baza definicji ataków jest tylko demonstracyjna, w~przyszłości należałoby ją konsekwentnie rozszerzać o~nowe wpisy, które odzwierciedlałyby odnajdywane podatności w~popularnych oprogramowaniach. Prawdopodobnie w~przyszłości zaprojektowany język może okazać się niewystarczający do opisania niektórych konwersacji HTTP, ale dzięki wykorzystaniu YAML i~prostego opisu żądań i~odpowiedzi, jego rozszerzenie nie powinno stanowić żadnego problemu.
 
-Zaimplementowane narzędzie może zostać rozbudowane i dołączone do większego systemu, który samodzielnie mógłby dokonywać ciągłej ewaluacji nie tylko zapory aplikacyjnej, ale także standardowej zapory sieciowej czy konfiguracji systemu operacyjnego. Dopiero pełny obraz daje administratorowi kontrolę nad stanem bezpieczeństwa infrastruktury i pozwoli reagować na wszelkie anomalie w ruchu sieciowym, które mogą wydarzyć się podczas ataku.
+Zaimplementowane narzędzie może zostać rozbudowane i~dołączone do większego systemu, który samodzielnie mógłby dokonywać ciągłej ewaluacji nie tylko zapory aplikacyjnej, ale także standardowej zapory sieciowej czy konfiguracji systemu operacyjnego. Dopiero pełny obraz daje administratorowi kontrolę nad stanem bezpieczeństwa infrastruktury i~pozwoli reagować na wszelkie anomalie w~ruchu sieciowym, które mogą wydarzyć się podczas ataku.
 
 \appendix
 %\chapter{Opis języka definicji ataków}
@@ -845,16 +848,16 @@ Zaimplementowane narzędzie może zostać rozbudowane i dołączone do większeg
 \begin{thebibliography}{1}
 \bibitem{cve} Common Vulnerabilities and Exposures, \url{https://cve.mitre.org/} [dostęp: 17 marca 2017]
 
-\bibitem{symphony} \url{https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff}
-\bibitem{tweetdeck} \url{http://www.businessinsider.com/tweetdeck-major-security-vulnerability-twitter-2014-6} [dostęp 03.05.2017 r.]
-\bibitem{directaccess} \url{https://cwe.mitre.org/data/definitions/285.html}
-\bibitem{thecartpress} \url{https://www.htbridge.com/advisory/HTB23254} [dostęp: 06.05.2017 r.]
+\bibitem{symphony} Zmiana w~Symphony, \url{https://github.com/symphonycms/symphony-2/commit/b329a14adc40868965076a77210452e396243dcd.diff} [dostęp: 10 września 2017 r.]
+\bibitem{tweetdeck} Dave Smith, TweetDeck Was Hacked — And This Tweet Is Getting Retweeted Over And Over Again, \url{http://www.businessinsider.com/tweetdeck-major-security- vulnerability-twitter-2014-6} [dostęp: 03.05.2017 r.]
+\bibitem{directaccess} CWE-285: Improper Authorization, \url{https://cwe.mitre.org/data/definitions/285.html} [dostęp: 03.05.2017 r.]
+\bibitem{thecartpress} Multiple Vulnerabilities in TheCartPress WordPress plugin, \url{https://www.htbridge.com/advisory/HTB23254} [dostęp: 06.05.2017 r.]
 
-\bibitem{wykop} \url{http://prawo.vagla.pl/node/8629} [dostęp: 06.05.2017 r.]
-\bibitem{vk} \url{http://thehackernews.com/2016/06/vk-com-data-breach.html} [dostęp: 07.05.2017 r.]
-\bibitem{csrf-example} \url{http://cwe.mitre.org/data/definitions/352.html} [dostęp: 12.06.2017 r.]
-\bibitem{playv1} \url{https://www.playframework.com/security/vulnerability/20160304-CsrfBypass}
-\bibitem{html5security} \url{https://www.owasp.org/index.php/HTML5\_Security\_Cheat\_Sheet} [dostęp: 13.06.2017 r.]
+\bibitem{wykop} Piotr Waglowski, Warto mieć różne hasła w~różnych serwisach (społecznościowych) czyli wyciek danych z~Wykop.pl, \url{http://prawo.vagla.pl/node/8629} [dostęp: 06.05.2017 r.]
+\bibitem{vk} Swati Khandelwal, VK.com HACKED! 100 Million Clear Text Passwords Leaked Online, \url{http://thehackernews.com/2016/06/vk-com-data-breach.html} [dostęp: 07.05.2017 r.]
+\bibitem{csrf-example} CWE-352: Cross-Site Request Forgery (CSRF), \url{http://cwe.mitre.org/data/definitions/352.html} [dostęp: 12.06.2017 r.]
+\bibitem{playv1} Play Framework Security Advisory, CSRF Bypass, \url{https://www.playframework.com/security/vulnerability/20160304-CsrfBypass} [dostęp: 12.06.2017 r.]
+\bibitem{html5security} OWASP, HTML5 Security Cheat Sheet, \url{https://www.owasp.org/index.php/HTML5\_Security\_Cheat\_Sheet} [dostęp: 13.06.2017 r.]
 \bibitem{scholar1} Yao-Wen Huang, Shih-Kun Huang, Tsung-Po Lin, and Chung-Hung Tsai. 2003. Web application security assessment by fault injection and behavior monitoring. In Proceedings of the 12th international conference on World Wide Web (WWW '03). ACM, New York, NY, USA, 148-159.
 \bibitem{scholar2} Dafydd Stuttard, Marcus Pinto. 2011. The Web Application Hacker's Handbook: Finding and Exploiting Security Flaws. Second Edition.
 \bibitem{naxsi-sekurak} Daniel Iziourov. 2017. Czym jest Web Application Firewall? – część pierwsza: na przykładzie naxsi. Sekurak.pl. https://sekurak.pl/czym-jest-web-application-firewall-czesc-pierwsza-na-przykladzie-naxsi/ [dostęp 14.06.2017 r.]
@@ -864,6 +867,7 @@ Zaimplementowane narzędzie może zostać rozbudowane i dołączone do większeg
 \bibitem{yamlspec} YAML 1.2, \url{http://www.yaml.org/spec/1.2/spec.html#id2708649}, [dostęp: 15 sierpnia 2017 r.]
 \bibitem{wordpresscve2} Wordpress 4.2 - Persistent Cross-Site Scripting, \url{https://www.exploit-db.com/exploits/36844/}, [dostęp: 1 września 2017 r.]
 \bibitem{awswaf} Amazon (2017), Use AWS WAF to Mitigate OWASP's Top 10 Web Application Vulnerabilities, \url{https://d0.awsstatic.com/whitepapers/Security/aws-waf-owasp.pdf}, [dostęp: 1 września 2017 r.]
+\bibitem{werkzeug} RunServerPlus, dodatek do Django, \url{http://django-extensions.readthedocs.io/en/latest/runserver_plus.html}, [dostęp: 4 września 2017 r.]
 \end{thebibliography}
 
 \end{document}
